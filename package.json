@@ -11,9 +11,14 @@
     "typescript": "^2.9.2"
   },
   "scripts": {
-    "start": "parcel index.html"
+    "start": "parcel index.html",
+    "prebuild": "rm -rf dist",
+    "build": "parcel build --public-url '.' index.html",
+    "predeploy": "npm run build",
+    "deploy": "gh-pages -d dist"
   },
   "dependencies": {
+    "gh-pages": "^1.2.0",
     "vega-embed": "^3.15.0"
   }
 }
