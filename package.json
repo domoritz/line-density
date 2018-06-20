@@ -1,7 +1,7 @@
 {
-  "name": "line-heatmap",
+  "name": "line-density",
   "version": "0.0.1",
-  "description": "Fast heatmaps for massive time series.",
+  "description": "Fast density heatmaps for massive time series.",
   "main": "index.js",
   "author": "Dominik Moritz",
   "license": "MIT",
