@@ -64,7 +64,8 @@ const regl = regl_({
   canvas: canvas,
   extensions: ["OES_texture_float"],
   attributes: {
-    preserveDrawingBuffer: true
+    preserveDrawingBuffer: true,
+    antialias: true
   }
 });
 
@@ -73,16 +74,16 @@ regl.clear({
 });
 
 const buffer = regl.framebuffer({
-  width: 256,
-  height: 128,
+  width: 512,
+  height: 256,
   colorFormat: "rgba",
   colorType: "uint8",
   stencil: true
 });
 
 const output = regl.framebuffer({
-  width: 256,
-  height: 128,
+  width: 512,
+  height: 256,
   colorFormat: "rgba",
   colorType: "float",
   stencil: true
@@ -99,6 +100,7 @@ const drawLine = regl({
   uniform float maxY;
 
   void main() {
+    // time and value start at 0
     float x = time / maxX;
     float y = value / maxY;
 
@@ -113,6 +115,7 @@ const drawLine = regl({
   precision mediump float;
 
   void main() {
+    // write to the red channel
     gl_FragColor = vec4(1.0, 0.0, 0.0, 0.0);
   }`,
   
@@ -135,40 +138,40 @@ const drawLine = regl({
 });
 
 // mult + norm + add
-// const normalize = regl({
-//   vert: `
-//   precision mediump float;
-//   attribute vec2 position;
-//   uniform sampler2D buffer;
-//   varying vec2 uv;
-//   void main() {
-//     uv = 0.5 * (position + 1.0);
-//     gl_Position = vec4(position, 0, 1);
+const normalize = regl({
+  vert: `
+  precision mediump float;
+  attribute vec2 position;
+  uniform sampler2D buffer;
+  varying vec2 uv;
+  void main() {
+    uv = 0.5 * (position + 1.0);
+    gl_Position = vec4(position, 0, 1);
 
-//     // buffer
-//   }`,
+    // buffer
+  }`,
   
-//   frag: `
-//   precision mediump float;
-//   uniform sampler2D buffer;
-//   varying vec2 uv;
-//   void main() {
-//     float r = texture2D(buffer, uv).r;
-//     gl_FragColor = vec4(r, 0, 0, 1);
-//   }`,
+  frag: `
+  precision mediump float;
+  uniform sampler2D buffer;
+  varying vec2 uv;
+  void main() {
+    float r = texture2D(buffer, uv).r;
+    gl_FragColor = vec4(r, 0, 0, 1);
+  }`,
   
-//   attributes: {
-//     position: [-4, -4, 4, -4, 0, 4]
-//   },
+  attributes: {
+    position: [-4, -4, 4, -4, 0, 4]
+  },
   
-//   uniforms: {
-//     buffer: regl.prop<any, "buffer">("buffer")
-//   },
+  uniforms: {
+    buffer: regl.prop<any, "buffer">("buffer")
+  },
   
-//   count: 3,
+  count: 3,
   
-//   framebuffer: output
-// });
+  // framebuffer: output
+});
 
 const drawBuffer = regl({
   vert: `
@@ -200,24 +203,17 @@ const drawBuffer = regl({
 });
 
 drawLine({
-  times: range(data[0].length),
   data: data[0],
+  times: range(NUM_POINTS),
   maxY: 1,
   maxX: NUM_POINTS,
-  count: data[0].length
-});
+  count: NUM_POINTS
+})
 
-// normalize({
-//   buffer: buffer
-// });
-
-drawBuffer({
+normalize({
   buffer: buffer
 });
 
-// // scoped command
-// drawLine({ maxX: NUM_POINTS}, () => {
-//   drawLine([{ data: data }])
-// })
-
-// console.log(regl.read())
+drawBuffer({
+  buffer: output
+});
