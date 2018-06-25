@@ -1,4 +1,4 @@
-# Fast density heatmaps for tiem series
+# Fast density heatmaps for time series
 
 Status: Experimental. Nothing to see yet. 
 
