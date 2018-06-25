@@ -262,6 +262,7 @@ const output = regl.framebuffer({
   colorType: "float"
 });
 
+// Should draw the normalized lines into the same buffer but currently only draws the first line.
 for (const i of [0, 1, 2, 3, 4]) {
   drawLine({
     data: data[i],
