@@ -29,6 +29,9 @@ function range(n: number) {
 const NUM_SERIES = 10;
 const NUM_POINTS = 200;
 
+const WIDTH = 512;
+const HEIGHT = 256;
+
 const data = generateData(NUM_SERIES, NUM_POINTS);
 
 const values = data
@@ -73,21 +76,7 @@ regl.clear({
   color: [0, 0, 0, 0]
 });
 
-const buffer = regl.framebuffer({
-  width: 512,
-  height: 256,
-  colorFormat: "rgba",
-  colorType: "uint8",
-  stencil: true
-});
-
-const output = regl.framebuffer({
-  width: 512,
-  height: 256,
-  colorFormat: "rgba",
-  colorType: "float",
-  stencil: true
-});
+console.log("limits", regl.limits);
 
 const drawLine = regl({
   vert: `
@@ -134,54 +123,81 @@ const drawLine = regl({
   primitive: "line strip",
   lineWidth: () => 1,
   
-  framebuffer: buffer
+  framebuffer: regl.prop<any, "out">("out")
 });
 
-// mult + norm + add
-const normalize = regl({
+const computeBase = {
   vert: `
   precision mediump float;
   attribute vec2 position;
-  uniform sampler2D buffer;
   varying vec2 uv;
   void main() {
     uv = 0.5 * (position + 1.0);
     gl_Position = vec4(position, 0, 1);
-
-    // buffer
   }`,
+  
+  attributes: {
+    position: [-4, -4, 4, -4, 0, 4]
+  },
+
+  count: 3
+}
+
+/**
+ * Compute the sums of each column and puts it into a framebuffer
+ */
+const sum = regl({
+  ...computeBase,
   
   frag: `
   precision mediump float;
   uniform sampler2D buffer;
   varying vec2 uv;
   void main() {
-    float r = texture2D(buffer, uv).r;
-    gl_FragColor = vec4(r, 0, 0, 1);
+    // normalize by the column
+    float sum = 1.0;
+    for (int j = 0; j <= ${HEIGHT}; j++) {
+      vec2 pos = vec2(uv.x, j);
+      float value = texture2D(buffer, pos).r;
+      sum += value;
+    }
+
+    gl_FragColor = vec4(sum, 0, 0, 1);
   }`,
   
-  attributes: {
-    position: [-4, -4, 4, -4, 0, 4]
-  },
   
   uniforms: {
     buffer: regl.prop<any, "buffer">("buffer")
   },
   
-  count: 3,
+  framebuffer: regl.prop<any, "out">("out")
+});
+
+const normalize = regl({
+  ...computeBase,
   
-  // framebuffer: output
+  frag: `
+  precision mediump float;
+  uniform sampler2D buffer;
+  uniform sampler2D sums;
+  varying vec2 uv;
+  void main() {
+    float r = texture2D(buffer, uv).r;
+    float s = texture2D(sums, vec2(uv.x, 0)).r;
+
+    gl_FragColor = vec4(r / s, 0, 0, 1);
+  }`,
+  
+  uniforms: {
+    sums: regl.prop<any, "sums">("sums"),
+    buffer: regl.prop<any, "buffer">("buffer")
+  },
+  
+  framebuffer: regl.prop<any, "out">("out")
 });
 
 const drawBuffer = regl({
-  vert: `
-  precision mediump float;
-  attribute vec2 position;
-  varying vec2 uv;
-  void main() {
-    uv = 0.5 * (position + 1.0);
-    gl_Position = vec4(position, 0, 1);
-  }`,
+  ...computeBase,
   
   frag: `
   precision mediump float;
@@ -190,30 +206,71 @@ const drawBuffer = regl({
   void main() {
     gl_FragColor = texture2D(buffer, uv);
   }`,
-  
-  attributes: {
-    position: [-4, -4, 4, -4, 0, 4]
-  },
-  
+
   uniforms: {
     buffer: regl.prop<any, "buffer">("buffer")
-  },
-  
-  count: 3
+  }
 });
+
+const buffer = regl.framebuffer({
+  width: WIDTH,
+  height: HEIGHT,
+  colorFormat: "rgba",
+  colorType: "float",
+  stencil: true
+});
+
+const sums = regl.framebuffer({
+  width: WIDTH,
+  height: 1,
+  colorFormat: "rgba",
+  colorType: "float",
+  stencil: true
+});
+
+const output = regl.framebuffer({
+  width: WIDTH,
+  height: HEIGHT,
+  colorFormat: "rgba",
+  colorType: "float",
+  stencil: true
+});
+
+function printBuffer(b) {
+  regl({framebuffer: b})(() => {
+    const arr = regl.read();
+    const out = [];
+    for (var i = 0; i < arr.length; i += 4) {
+      out.push(arr[i]);
+    }
+    console.log(out);
+  })
+}
 
 drawLine({
   data: data[0],
   times: range(NUM_POINTS),
   maxY: 1,
   maxX: NUM_POINTS,
-  count: NUM_POINTS
+  count: NUM_POINTS,
+  out: buffer
 })
 
+sum({
+  buffer: buffer,
+  out: sums
+});
+
+
+
 normalize({
-  buffer: buffer
+  buffer: buffer,
+  sums: sums,
+  out: output
 });
 
 drawBuffer({
   buffer: output
 });
+
+printBuffer(output);
