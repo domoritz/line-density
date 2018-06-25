@@ -100,7 +100,7 @@ const drawLine = regl({
 
   void main() {
     // write to the red channel
-    gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
+    gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);
   }`,
   
   uniforms: {
@@ -112,6 +112,10 @@ const drawLine = regl({
     time: regl.prop<any, "times">("times"),
     value: regl.prop<any, "data">("data")
   },
+
+  colorMask: regl.prop<any, "colorMask">("colorMask"),
+
+  depth: {enable: false},
   
   count: regl.prop<any, "count">("count"),
   
@@ -136,6 +140,8 @@ const computeBase = {
     position: [-4, -4, 4, -4, 0, 4]
   },
 
+  depth: {enable: false},
+
   count: 3
 }
 
@@ -152,16 +158,15 @@ const sum = regl({
 
   void main() {
     // normalize by the column
-    float sum = 1.0;
+    vec4 sum = vec4(0.0);
     for (int j = 0; j <= ${HEIGHT}; j++) {
       vec2 pos = uv + vec2(0.0, 2.0 * float(j) / float(${HEIGHT}) - 1.0);
-      float value = texture2D(buffer, pos).r;
+      vec4 value = texture2D(buffer, pos);
       sum += value;
     }
 
-    gl_FragColor = vec4(sum, 0, 0, 1);
+    gl_FragColor = sum;
   }`,
-  
   
   uniforms: {
     buffer: regl.prop<any, "buffer">("buffer")
@@ -184,10 +189,10 @@ const normalize = regl({
   varying vec2 uv;
 
   void main() {
-    float r = texture2D(buffer, uv).r;
-    float s = texture2D(sums, vec2(uv.x, 0)).r;
+    vec4 value = texture2D(buffer, uv);
+    vec4 sum = texture2D(sums, vec2(uv.x, 0));
 
-    gl_FragColor = vec4(r / s, 0, 0, 1);
+    gl_FragColor = vec4(value / sum);
   }`,
   
   uniforms: {
@@ -198,9 +203,9 @@ const normalize = regl({
   // alpha blending
   blend: {
     enable: true,
-    func: {
-      src: 'src alpha',
-      dst: 'one minus src alpha'
+    equation: {
+      rgb: 'add',
+      alpha: 'add'
     }
   },
   
@@ -219,7 +224,9 @@ const drawBuffer = regl({
   varying vec2 uv;
 
   void main() {
-    gl_FragColor = texture2D(buffer, uv);
+    // only draw rgb
+    vec3 color = texture2D(buffer, uv).rgb;
+    gl_FragColor = vec4(color, 1.0);
   }`,
 
   uniforms: {
@@ -263,27 +270,44 @@ const output = regl.framebuffer({
 });
 
 // Should draw the normalized lines into the same buffer but currently only draws the first line.
-for (const i of [0, 1, 2, 3, 4]) {
-  drawLine({
-    data: data[i],
-    times: range(NUM_POINTS),
-    maxY: 1,
-    maxX: NUM_POINTS,
-    count: NUM_POINTS,
-    out: buffer
-  })
+drawLine({
+  data: data[0],
+  times: range(NUM_POINTS),
+  maxY: 1,
+  maxX: NUM_POINTS,
+  colorMask: [true, false, false, false],
+  count: NUM_POINTS,
+  out: buffer
+})
+drawLine({
+  data: data[1],
+  times: range(NUM_POINTS),
+  maxY: 1,
+  maxX: NUM_POINTS,
+  colorMask: [false, true, false, false],
+  count: NUM_POINTS,
+  out: buffer
+})
+drawLine({
+  data: data[2],
+  times: range(NUM_POINTS),
+  maxY: 1,
+  maxX: NUM_POINTS,
+  colorMask: [false, false, true, false],
+  count: NUM_POINTS,
+  out: buffer
+})
 
-  sum({
-    buffer: buffer,
-    out: sums
-  });
+sum({
+  buffer: buffer,
+  out: sums
+});
 
-  normalize({
-    buffer: buffer,
-    sums: sums,
-    out: output
-  });
-}
+normalize({
+  buffer: buffer,
+  sums: sums,
+  out: output
+});
 
 drawBuffer({
   buffer: output
