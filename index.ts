@@ -27,7 +27,7 @@ function range(n: number) {
 }
 
 const NUM_SERIES = 10;
-const NUM_POINTS = 200;
+const NUM_POINTS = 300;
 
 const WIDTH = 64;
 const HEIGHT = 32;
@@ -126,6 +126,7 @@ const computeBase = {
   precision mediump float;
   attribute vec2 position;
   varying vec2 uv;
+
   void main() {
     uv = 0.5 * (position + 1.0);
     gl_Position = vec4(position, 0, 1);
@@ -139,7 +140,7 @@ const computeBase = {
 }
 
 /**
- * Compute the sums of each column and puts it into a framebuffer
+ * Compute the sums of each column and put it into a framebuffer
  */
 const sum = regl({
   ...computeBase,
@@ -148,6 +149,7 @@ const sum = regl({
   precision mediump float;
   uniform sampler2D buffer;
   varying vec2 uv;
+
   void main() {
     // normalize by the column
     float sum = 1.0;
@@ -168,6 +170,10 @@ const sum = regl({
   framebuffer: regl.prop<any, "out">("out")
 });
 
+/**
+ * Normalize the pixels in the buffer by the sums computed before.
+ * Alpha blends the outputs.
+ */
 const normalize = regl({
   ...computeBase,
   
@@ -176,6 +182,7 @@ const normalize = regl({
   uniform sampler2D buffer;
   uniform sampler2D sums;
   varying vec2 uv;
+
   void main() {
     float r = texture2D(buffer, uv).r;
     float s = texture2D(sums, vec2(uv.x, 0)).r;
@@ -187,10 +194,22 @@ const normalize = regl({
     sums: regl.prop<any, "sums">("sums"),
     buffer: regl.prop<any, "buffer">("buffer")
   },
+
+  // alpha blending
+  blend: {
+    enable: true,
+    func: {
+      src: 'src alpha',
+      dst: 'one minus src alpha'
+    }
+  },
   
   framebuffer: regl.prop<any, "out">("out")
 });
 
+/**
+ * Helper function to draw a bufer.
+ */
 const drawBuffer = regl({
   ...computeBase,
   
@@ -198,6 +217,7 @@ const drawBuffer = regl({
   precision mediump float;
   uniform sampler2D buffer;
   varying vec2 uv;
+
   void main() {
     gl_FragColor = texture2D(buffer, uv);
   }`,
@@ -207,30 +227,9 @@ const drawBuffer = regl({
   }
 });
 
-const buffer = regl.framebuffer({
-  width: WIDTH,
-  height: HEIGHT,
-  colorFormat: "rgba",
-  colorType: "float",
-  stencil: true
-});
-
-const sums = regl.framebuffer({
-  width: WIDTH,
-  height: 1,
-  colorFormat: "rgba",
-  colorType: "float",
-  stencil: true
-});
-
-const output = regl.framebuffer({
-  width: WIDTH,
-  height: HEIGHT,
-  colorFormat: "rgba",
-  colorType: "float",
-  stencil: true
-});
-
+/**
+ * Helper function to print the r component of a buffer.
+ */
 function printBuffer(b) {
   regl({framebuffer: b})(() => {
     const arr = regl.read();
@@ -242,25 +241,48 @@ function printBuffer(b) {
   })
 }
 
-drawLine({
-  data: data[0],
-  times: range(NUM_POINTS),
-  maxY: data[0].reduce((acc, val) => Math.max(acc, val), 0),
-  maxX: NUM_POINTS,
-  count: NUM_POINTS,
-  out: buffer
-})
-
-sum({
-  buffer: buffer,
-  out: sums
+const buffer = regl.framebuffer({
+  width: WIDTH,
+  height: HEIGHT,
+  colorFormat: "rgba",
+  colorType: "float"
 });
 
-normalize({
-  buffer: buffer,
-  sums: sums,
-  out: output
+const sums = regl.framebuffer({
+  width: WIDTH,
+  height: 1,
+  colorFormat: "rgba",
+  colorType: "float"
 });
+
+const output = regl.framebuffer({
+  width: WIDTH,
+  height: HEIGHT,
+  colorFormat: "rgba",
+  colorType: "float"
+});
+
+for (const i of [0, 1, 2, 3, 4]) {
+  drawLine({
+    data: data[i],
+    times: range(NUM_POINTS),
+    maxY: 1,
+    maxX: NUM_POINTS,
+    count: NUM_POINTS,
+    out: buffer
+  })
+
+  sum({
+    buffer: buffer,
+    out: sums
+  });
+
+  normalize({
+    buffer: buffer,
+    sums: sums,
+    out: output
+  });
+}
 
 drawBuffer({
   buffer: output
