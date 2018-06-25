@@ -29,8 +29,8 @@ function range(n: number) {
 const NUM_SERIES = 10;
 const NUM_POINTS = 200;
 
-const WIDTH = 512;
-const HEIGHT = 256;
+const WIDTH = 64;
+const HEIGHT = 32;
 
 const data = generateData(NUM_SERIES, NUM_POINTS);
 
@@ -61,22 +61,17 @@ embed(
   { defaultStyle: true }
 );
 
-const canvas = document.getElementById("regl") as HTMLCanvasElement;
-
 const regl = regl_({
-  canvas: canvas,
-  extensions: ["OES_texture_float"],
-  attributes: {
-    preserveDrawingBuffer: true,
-    antialias: true
-  }
+  canvas: "#regl",
+  extensions: ["OES_texture_float"]
 });
+
+// console.log("limits", regl.limits);
 
 regl.clear({
-  color: [0, 0, 0, 0]
+  color: [0, 0, 0, 1],
+  depth: 1
 });
-
-console.log("limits", regl.limits);
 
 const drawLine = regl({
   vert: `
@@ -105,7 +100,7 @@ const drawLine = regl({
 
   void main() {
     // write to the red channel
-    gl_FragColor = vec4(1.0, 0.0, 0.0, 0.0);
+    gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
   }`,
   
   uniforms: {
@@ -157,7 +152,7 @@ const sum = regl({
     // normalize by the column
     float sum = 1.0;
     for (int j = 0; j <= ${HEIGHT}; j++) {
-      vec2 pos = vec2(uv.x, j);
+      vec2 pos = uv + vec2(0.0, 2.0 * float(j) / float(${HEIGHT}) - 1.0);
       float value = texture2D(buffer, pos).r;
       sum += value;
     }
@@ -250,7 +245,7 @@ function printBuffer(b) {
 drawLine({
   data: data[0],
   times: range(NUM_POINTS),
-  maxY: 1,
+  maxY: data[0].reduce((acc, val) => Math.max(acc, val), 0),
   maxX: NUM_POINTS,
   count: NUM_POINTS,
   out: buffer
@@ -260,8 +255,6 @@ sum({
   buffer: buffer,
   out: sums
 });
-
-
 
 normalize({
   buffer: buffer,
@@ -273,4 +266,4 @@ drawBuffer({
   buffer: output
 });
 
-printBuffer(output);
+printBuffer(sums);
