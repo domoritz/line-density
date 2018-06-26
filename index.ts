@@ -27,11 +27,14 @@ function range(n: number) {
   return out;
 }
 
-const NUM_SERIES = 1000;
+const NUM_SERIES = 10000;
 const NUM_POINTS = 256;
 
 const WIDTH = 64;
 const HEIGHT = 32;
+
+const CHART_WIDTH = 800;
+const CHART_HEIGHT = CHART_WIDTH / WIDTH * HEIGHT;  // square rects
 
 console.time("Generate data");
 const data = generateData(NUM_SERIES, NUM_POINTS);
@@ -47,7 +50,8 @@ const values = data
 embed(
   document.getElementById("lines"),
   {
-    width: 600,
+    title: "Sample of the first 5 time series",
+    width: CHART_WIDTH,
     data: {
       values: values
     },
@@ -56,25 +60,28 @@ embed(
       orient: "vertical"
     },
     encoding: {
-      color: { field: "group", type: "nominal" },
-      x: { field: "time", type: "quantitative" },
-      y: { field: "value", type: "quantitative" }
+      color: { field: "group", type: "nominal", title: "Series" },
+      x: { field: "time", type: "quantitative", title: "Time" },
+      y: { field: "value", type: "quantitative", title: "Value" }
     }
   },
   { defaultStyle: true }
 );
 
+// const canvas = document.getElementById("#regl") as HTMLCanvasElement;
+const canvas = document.createElement("canvas");
+
 const regl = regl_({
-  canvas: "#regl",
+  canvas: canvas,
   extensions: ["OES_texture_float"]
 });
 
 // console.log("limits", regl.limits);
 
-regl.clear({
-  color: [0, 0, 0, 1],
-  depth: 1
-});
+// regl.clear({
+//   color: [0, 0, 0, 1],
+//   depth: 1
+// });
 
 const drawLine = regl({
   vert: `
@@ -131,6 +138,7 @@ const drawLine = regl({
 const computeBase = {
   vert: `
   precision mediump float;
+
   attribute vec2 position;
   varying vec2 uv;
 
@@ -156,6 +164,7 @@ const sum = regl({
   
   frag: `
   precision mediump float;
+
   uniform sampler2D buffer;
   varying vec2 uv;
 
@@ -187,6 +196,7 @@ const normalize = regl({
   
   frag: `
   precision mediump float;
+
   uniform sampler2D buffer;
   uniform sampler2D sums;
   varying vec2 uv;
@@ -222,6 +232,7 @@ const mergeBuffer = regl({
   
   frag: `
   precision mediump float;
+
   uniform sampler2D buffer;
   varying vec2 uv;
 
@@ -246,13 +257,62 @@ const drawBuffer = regl({
   
   frag: `
   precision mediump float;
-  uniform sampler2D buffer;
-  varying vec2 uv;
 
+  uniform sampler2D buffer;
+  
+  varying vec2 uv;
+  
+  vec4 viridis(float x) {
+    const float e0 = 0.0;
+    const vec4 v0 = vec4(0.26666666666666666,0.00392156862745098,0.32941176470588235,1);
+    const float e1 = 0.13;
+    const vec4 v1 = vec4(0.2784313725490196,0.17254901960784313,0.47843137254901963,1);
+    const float e2 = 0.25;
+    const vec4 v2 = vec4(0.23137254901960785,0.3176470588235294,0.5450980392156862,1);
+    const float e3 = 0.38;
+    const vec4 v3 = vec4(0.17254901960784313,0.44313725490196076,0.5568627450980392,1);
+    const float e4 = 0.5;
+    const vec4 v4 = vec4(0.12941176470588237,0.5647058823529412,0.5529411764705883,1);
+    const float e5 = 0.63;
+    const vec4 v5 = vec4(0.15294117647058825,0.6784313725490196,0.5058823529411764,1);
+    const float e6 = 0.75;
+    const vec4 v6 = vec4(0.3607843137254902,0.7843137254901961,0.38823529411764707,1);
+    const float e7 = 0.88;
+    const vec4 v7 = vec4(0.6666666666666666,0.8627450980392157,0.19607843137254902,1);
+    const float e8 = 1.0;
+    const vec4 v8 = vec4(0.9921568627450981,0.9058823529411765,0.1450980392156863,1);
+    float a0 = smoothstep(e0,e1,x);
+    float a1 = smoothstep(e1,e2,x);
+    float a2 = smoothstep(e2,e3,x);
+    float a3 = smoothstep(e3,e4,x);
+    float a4 = smoothstep(e4,e5,x);
+    float a5 = smoothstep(e5,e6,x);
+    float a6 = smoothstep(e6,e7,x);
+    float a7 = smoothstep(e7,e8,x);
+    return max(mix(v0,v1,a0)*step(e0,x)*step(x,e1),
+      max(mix(v1,v2,a1)*step(e1,x)*step(x,e2),
+      max(mix(v2,v3,a2)*step(e2,x)*step(x,e3),
+      max(mix(v3,v4,a3)*step(e3,x)*step(x,e4),
+      max(mix(v4,v5,a4)*step(e4,x)*step(x,e5),
+      max(mix(v5,v6,a5)*step(e5,x)*step(x,e6),
+      max(mix(v6,v7,a6)*step(e6,x)*step(x,e7),mix(v7,v8,a7)*step(e7,x)*step(x,e8)
+    )))))));
+  }
+  
   void main() {
-    // only draw rgb
-    vec3 color = texture2D(buffer, uv).rgb;
-    gl_FragColor = vec4(color, 1.0);
+    // inefficient: get maximum value in buffer
+    float maxValue = 0.0;
+    for (float i = 0.0; i < ${WIDTH.toFixed(1)}; i++) {
+      float col = i / ${WIDTH.toFixed(1)};
+      for (float j = 0.0; j < ${HEIGHT.toFixed(1)}; j++) {
+        float row = j / ${HEIGHT.toFixed(1)};
+        maxValue = max(maxValue, texture2D(buffer, vec2(row, col)).r);
+      }
+    }
+
+    // get r and draw it with viridis
+    float value = texture2D(buffer, uv).r / maxValue;
+    gl_FragColor = viridis(value);
   }`,
 
   uniforms: {
@@ -326,9 +386,12 @@ mergeBuffer({
 });
 console.timeEnd("Compute heatmap");
 
-drawBuffer({
-  buffer: heatBuffer
-});
+
+// console.time("Render output");
+// drawBuffer({
+//   buffer: heatBuffer
+// });
+// console.timeEnd("Render output");
 
 
 regl({framebuffer: heatBuffer})(() => {
@@ -350,19 +413,130 @@ regl({framebuffer: heatBuffer})(() => {
   embed(
     document.getElementById("heat"),
     {
-      width: 600,
-      height: 300,
-      data: {
-        values: heatmapData
+      "$schema": "https://vega.github.io/schema/vega/v4.json",
+      "width": CHART_WIDTH,
+      "height": CHART_HEIGHT,
+      "padding": 5,
+    
+      "title": {
+        "text": "Line Heatmap",
+        "anchor": "middle",
+        "fontSize": 16,
+        "frame": "group",
+        "offset": 4
       },
-      mark: {
-        type: "rect"
-      },
-      encoding: {
-        color: { field: "value", type: "quantitative" },
-        x: { field: "x", type: "ordinal", scale: {padding: 0} },
-        y: { field: "y", type: "ordinal", scale: {reverse: true, padding: 0} }
-      }
+    
+      "signals": [
+        {
+          "name": "palette", "value": "Viridis",
+          "bind": {
+            "input": "select",
+            "options": [
+              "Viridis",
+              "Magma",
+              "Inferno",
+              "Plasma",
+              "Blues",
+              "Greens",
+              "Greys",
+              "Purples",
+              "Reds",
+              "Oranges",
+              "BlueOrange",
+              "BrownBlueGreen",
+              "PurpleGreen",
+              "PinkYellowGreen",
+              "PurpleOrange",
+              "RedBlue",
+              "RedGrey",
+              "RedYellowBlue",
+              "RedYellowGreen",
+              "BlueGreen",
+              "BluePurple",
+              "GreenBlue",
+              "OrangeRed",
+              "PurpleBlueGreen",
+              "PurpleBlue",
+              "PurpleRed",
+              "RedPurple",
+              "YellowGreenBlue",
+              "YellowGreen",
+              "YellowOrangeBrown",
+              "YellowOrangeRed"
+            ]
+          }
+        },
+        {
+          "name": "reverse", "value": false, "bind": {"input": "checkbox"}
+        }
+      ],
+    
+      "data": [
+        {
+          "name": "table",
+          values: heatmapData
+        }
+      ],
+    
+      "scales": [
+        {
+          "name": "x",
+          "type": "linear",
+          "domain": {"data": "table", "field": "x"},
+          "range": "width"
+        },
+        {
+          "name": "y",
+          "type": "linear",
+          "domain": {"data": "table", "field": "y"},
+          "range": "height"
+        },
+        {
+          "name": "color",
+          "type": "sequential",
+          "range": {"scheme": {"signal": "palette"}},
+          "domain": {"data": "table", "field": "value"},
+          "reverse": {"signal": "reverse"},
+          "zero": false, "nice": true
+        }
+      ],
+    
+      "axes": [
+        {"orient": "bottom", "scale": "x", "domain": false, "title": "Time", labelOverlap: true},
+        {"orient": "left", "scale": "y", "domain": false, "title": "Value"}
+      ],
+    
+      "legends": [
+        {
+          "fill": "color",
+          "type": "gradient",
+          "title": "Density",
+          "titleFontSize": 12,
+          "titlePadding": 4,
+          "gradientLength": {"signal": "height - 16"},
+          "offset": 50,
+          "padding": 0
+        }
+      ],
+    
+      "marks": [
+        {
+          "type": "rect",
+          "from": {"data": "table"},
+          "encode": {
+            "enter": {
+              "x": {"scale": "x", "field": "x", offset: -.5}, // HACK
+              "y": {"scale": "y", "field": "y", offset: .5},
+              "x2": {"scale": "x", "signal": "datum.x + 1"},
+              "y2": {"scale": "y", "signal": "datum.y + 1"},
+              "tooltip": {"signal": "datum"}
+            },
+            "update": {
+              "fill": {"scale": "color", "field": "value"}
+            }
+          }
+        }
+      ]
     },
     { defaultStyle: true }
   );
