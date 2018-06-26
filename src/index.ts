@@ -68,7 +68,7 @@ const drawLine = regl({
 
   colorMask: regl.prop<any, "colorMask">("colorMask"),
 
-  depth: { enable: false },
+  depth: { enable: false, mask: false },
 
   count: regl.prop<any, "count">("count"),
 
@@ -94,7 +94,7 @@ const computeBase = {
     position: [-4, -4, 4, -4, 0, 4]
   },
 
-  depth: { enable: false },
+  depth: { enable: false, mask: false },
 
   count: 3
 };
