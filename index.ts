@@ -1,72 +1,16 @@
 import embed from "vega-embed";
 import regl_ from "regl";
 import ndarray from "ndarray";
-
-function generateData(n: number, m: number) {
-  const arr = new Array(n);
-
-  for (let i = 0; i < n; ++i) {
-    const d = (arr[i] = new Float32Array(m));
-    for (let j = 0, v = 0; j < m; ++j) {
-      d[j] = v = walk(v);
-    }
-  }
-
-  function walk(v) {
-    return Math.max(0, Math.min(1, v + (Math.random() - 0.5) * 0.05));
-  }
-
-  return arr;
-}
-
-function range(n: number) {
-  const out = new Float32Array(n);
-  for (let i = 0; i < n; i++) {
-    out[i] = i;
-  }
-  return out;
-}
-
-const NUM_SERIES = 10000;
-const NUM_POINTS = 256;
-
-const WIDTH = 64;
-const HEIGHT = 32;
-
-const CHART_WIDTH = 800;
-const CHART_HEIGHT = CHART_WIDTH / WIDTH * HEIGHT;  // square rects
+import { NUM_SERIES, NUM_POINTS, CHART_WIDTH, HEIGHT, WIDTH } from "./constants";
+import vegaHeatmap from "./vega-heatmap";
+import { generateData, range } from "./data-gen";
+import vegaLinechart from "./vega-linechart";
 
 console.time("Generate data");
 const data = generateData(NUM_SERIES, NUM_POINTS);
 console.timeEnd("Generate data");
 
-const values = data
-  .slice(0, 5)
-  .map((series, group) =>
-    [].slice.call(series).map((value, time) => ({ group, time, value }))
-  )
-  .reduce((acc, val) => acc.concat(val), []);
-
-embed(
-  document.getElementById("lines"),
-  {
-    title: "Sample of the first 5 time series",
-    width: CHART_WIDTH,
-    data: {
-      values: values
-    },
-    mark: {
-      type: "line",
-      orient: "vertical"
-    },
-    encoding: {
-      color: { field: "group", type: "nominal", title: "Series" },
-      x: { field: "time", type: "quantitative", title: "Time" },
-      y: { field: "value", type: "quantitative", title: "Value" }
-    }
-  },
-  { defaultStyle: true }
-);
+vegaLinechart(data);
 
 // const canvas = document.getElementById("#regl") as HTMLCanvasElement;
 const canvas = document.createElement("canvas");
@@ -354,12 +298,14 @@ function colorMask(i) {
   return mask;
 }
 
+const times = range(NUM_POINTS);
+
 console.time("Compute heatmap");
 for (let i = 0; i < data.length; i+=4) {
   drawLine([i, i+1, i+2, i+3].filter(d => d < data.length).map((
     d => ({
       values: data[d],
-      times: range(NUM_POINTS),
+      times: times,
       maxY: 1,
       maxX: NUM_POINTS,
       colorMask: colorMask(d),
@@ -384,6 +330,7 @@ mergeBuffer({
   buffer: outBuffer,
   out: heatBuffer
 });
+
 console.timeEnd("Compute heatmap");
 
 
@@ -392,7 +339,6 @@ console.timeEnd("Compute heatmap");
 //   buffer: heatBuffer
 // });
 // console.timeEnd("Render output");
-
 
 regl({framebuffer: heatBuffer})(() => {
   const arr = regl.read();
@@ -410,134 +356,5 @@ regl({framebuffer: heatBuffer})(() => {
     }
   }
 
-  embed(
-    document.getElementById("heat"),
-    {
-      "$schema": "https://vega.github.io/schema/vega/v4.json",
-      "width": CHART_WIDTH,
-      "height": CHART_HEIGHT,
-      "padding": 5,
-    
-      "title": {
-        "text": "Line Heatmap",
-        "anchor": "middle",
-        "fontSize": 16,
-        "frame": "group",
-        "offset": 4
-      },
-    
-      "signals": [
-        {
-          "name": "palette", "value": "Viridis",
-          "bind": {
-            "input": "select",
-            "options": [
-              "Viridis",
-              "Magma",
-              "Inferno",
-              "Plasma",
-              "Blues",
-              "Greens",
-              "Greys",
-              "Purples",
-              "Reds",
-              "Oranges",
-              "BlueOrange",
-              "BrownBlueGreen",
-              "PurpleGreen",
-              "PinkYellowGreen",
-              "PurpleOrange",
-              "RedBlue",
-              "RedGrey",
-              "RedYellowBlue",
-              "RedYellowGreen",
-              "BlueGreen",
-              "BluePurple",
-              "GreenBlue",
-              "OrangeRed",
-              "PurpleBlueGreen",
-              "PurpleBlue",
-              "PurpleRed",
-              "RedPurple",
-              "YellowGreenBlue",
-              "YellowGreen",
-              "YellowOrangeBrown",
-              "YellowOrangeRed"
-            ]
-          }
-        },
-        {
-          "name": "reverse", "value": false, "bind": {"input": "checkbox"}
-        }
-      ],
-    
-      "data": [
-        {
-          "name": "table",
-          values: heatmapData
-        }
-      ],
-    
-      "scales": [
-        {
-          "name": "x",
-          "type": "linear",
-          "domain": {"data": "table", "field": "x"},
-          "range": "width"
-        },
-        {
-          "name": "y",
-          "type": "linear",
-          "domain": {"data": "table", "field": "y"},
-          "range": "height"
-        },
-        {
-          "name": "color",
-          "type": "sequential",
-          "range": {"scheme": {"signal": "palette"}},
-          "domain": {"data": "table", "field": "value"},
-          "reverse": {"signal": "reverse"},
-          "zero": false, "nice": true
-        }
-      ],
-    
-      "axes": [
-        {"orient": "bottom", "scale": "x", "domain": false, "title": "Time", labelOverlap: true},
-        {"orient": "left", "scale": "y", "domain": false, "title": "Value"}
-      ],
-    
-      "legends": [
-        {
-          "fill": "color",
-          "type": "gradient",
-          "title": "Density",
-          "titleFontSize": 12,
-          "titlePadding": 4,
-          "gradientLength": {"signal": "height - 16"},
-          "offset": 50,
-          "padding": 0
-        }
-      ],
-    
-      "marks": [
-        {
-          "type": "rect",
-          "from": {"data": "table"},
-          "encode": {
-            "enter": {
-              "x": {"scale": "x", "field": "x", offset: -.5}, // HACK
-              "y": {"scale": "y", "field": "y", offset: .5},
-              "x2": {"scale": "x", "signal": "datum.x + 1"},
-              "y2": {"scale": "y", "signal": "datum.y + 1"},
-              "tooltip": {"signal": "datum"}
-            },
-            "update": {
-              "fill": {"scale": "color", "field": "value"}
-            }
-          }
-        }
-      ]
-    },
-    { defaultStyle: true }
-  );
+  vegaHeatmap(heatmapData);
 });
