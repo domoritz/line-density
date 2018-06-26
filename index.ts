@@ -83,10 +83,15 @@ const drawLine = regl({
   uniform float maxX;
   uniform float maxY;
 
+  varying float index;
+
   void main() {
     // time and value start at 0
     float x = time / maxX;
     float y = value / maxY;
+
+    // index into the data
+    index = time;
 
     // scale to [-1, 1]
     gl_Position = vec4(
@@ -98,19 +103,37 @@ const drawLine = regl({
   frag: `
   precision mediump float;
 
+  uniform float maxX;
+  uniform float series;
+  uniform float numSeries;
+  uniform sampler2D data;
+
+  varying float index;
+
   void main() {
-    // write to the red channel
-    gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);
+    float s = 2.0 * (series / numSeries - 0.5);
+    float t = 2.0 * (floor(index) / maxX - 0.5);
+
+    vec4 value = texture2D(data, vec2(s,t));
+    vec4 nextValue = texture2D(data, vec2(s,t + 2.0 / maxX));
+
+    vec4 dy = abs(value - nextValue);
+
+    // value / sqrt(dx^2 + dy^2) * dx = value / dy
+    gl_FragColor = vec4(1.0 / dy);
   }`,
   
   uniforms: {
     maxX: regl.prop<any, "maxX">("maxX"),
-    maxY: regl.prop<any, "maxY">("maxY")
+    maxY: regl.prop<any, "maxY">("maxY"),
+    numSeries: regl.prop<any, "numSeries">("numSeries"),
+    series: regl.prop<any, "series">("series"),
+    data: regl.prop<any, "data">("data")
   },
   
   attributes: {
     time: regl.prop<any, "times">("times"),
-    value: regl.prop<any, "data">("data")
+    value: regl.prop<any, "values">("values")
   },
 
   colorMask: regl.prop<any, "colorMask">("colorMask"),
@@ -121,84 +144,6 @@ const drawLine = regl({
   
   primitive: "line strip",
   lineWidth: () => 1,
-  
-  framebuffer: regl.prop<any, "out">("out")
-});
-
-const computeBase = {
-  vert: `
-  precision mediump float;
-  attribute vec2 position;
-  varying vec2 uv;
-
-  void main() {
-    uv = 0.5 * (position + 1.0);
-    gl_Position = vec4(position, 0, 1);
-  }`,
-  
-  attributes: {
-    position: [-4, -4, 4, -4, 0, 4]
-  },
-
-  depth: {enable: false},
-
-  count: 3
-}
-
-/**
- * Compute the sums of each column and put it into a framebuffer
- */
-const sum = regl({
-  ...computeBase,
-  
-  frag: `
-  precision mediump float;
-  uniform sampler2D buffer;
-  varying vec2 uv;
-
-  void main() {
-    // normalize by the column
-    vec4 sum = vec4(0.0);
-    for (int j = 0; j <= ${HEIGHT}; j++) {
-      vec2 pos = uv + vec2(0.0, 2.0 * float(j) / float(${HEIGHT}) - 1.0);
-      vec4 value = texture2D(buffer, pos);
-      sum += value;
-    }
-
-    gl_FragColor = sum;
-  }`,
-  
-  uniforms: {
-    buffer: regl.prop<any, "buffer">("buffer")
-  },
-  
-  framebuffer: regl.prop<any, "out">("out")
-});
-
-/**
- * Normalize the pixels in the buffer by the sums computed before.
- * Alpha blends the outputs.
- */
-const normalize = regl({
-  ...computeBase,
-  
-  frag: `
-  precision mediump float;
-  uniform sampler2D buffer;
-  uniform sampler2D sums;
-  varying vec2 uv;
-
-  void main() {
-    vec4 value = texture2D(buffer, uv);
-    vec4 sum = texture2D(sums, vec2(uv.x, 0));
-
-    gl_FragColor = vec4(value / sum);
-  }`,
-  
-  uniforms: {
-    sums: regl.prop<any, "sums">("sums"),
-    buffer: regl.prop<any, "buffer">("buffer")
-  },
 
   // alpha blending
   blend: {
@@ -216,18 +161,32 @@ const normalize = regl({
  * Helper function to draw a bufer.
  */
 const drawBuffer = regl({
-  ...computeBase,
-  
+  vert: `
+  precision mediump float;
+  attribute vec2 position;
+  varying vec2 uv;
+  void main() {
+    uv = 0.5 * (position + 1.0);
+    gl_Position = vec4(position, 0, 1);
+  }`,
+
   frag: `
   precision mediump float;
   uniform sampler2D buffer;
   varying vec2 uv;
-
   void main() {
     // only draw rgb
     vec3 color = texture2D(buffer, uv).rgb;
     gl_FragColor = vec4(color, 1.0);
   }`,
+  
+  attributes: {
+    position: [-4, -4, 4, -4, 0, 4]
+  },
+
+  depth: {enable: false},
+
+  count: 3,
 
   uniforms: {
     buffer: regl.prop<any, "buffer">("buffer")
@@ -248,64 +207,26 @@ function printBuffer(b) {
   })
 }
 
-const buffer = regl.framebuffer({
-  width: WIDTH,
-  height: HEIGHT,
-  colorFormat: "rgba",
-  colorType: "float"
-});
-
-const sums = regl.framebuffer({
-  width: WIDTH,
-  height: 1,
-  colorFormat: "rgba",
-  colorType: "float"
-});
-
 const output = regl.framebuffer({
   width: WIDTH,
   height: HEIGHT,
   colorFormat: "rgba",
-  colorType: "float"
+  colorType: "float",
+  depth: false
 });
 
-// Should draw the normalized lines into the same buffer but currently only draws the first line.
+const dataAsTexture = regl.texture(data);
+
 drawLine({
-  data: data[0],
+  values: data[0],
+  series: 0,
   times: range(NUM_POINTS),
+  data: dataAsTexture,
+  numSeries: NUM_SERIES,
   maxY: 1,
   maxX: NUM_POINTS,
   colorMask: [true, false, false, false],
   count: NUM_POINTS,
-  out: buffer
-})
-drawLine({
-  data: data[1],
-  times: range(NUM_POINTS),
-  maxY: 1,
-  maxX: NUM_POINTS,
-  colorMask: [false, true, false, false],
-  count: NUM_POINTS,
-  out: buffer
-})
-drawLine({
-  data: data[2],
-  times: range(NUM_POINTS),
-  maxY: 1,
-  maxX: NUM_POINTS,
-  colorMask: [false, false, true, false],
-  count: NUM_POINTS,
-  out: buffer
-})
-
-sum({
-  buffer: buffer,
-  out: sums
-});
-
-normalize({
-  buffer: buffer,
-  sums: sums,
   out: output
 });
 
@@ -313,4 +234,4 @@ drawBuffer({
   buffer: output
 });
 
-printBuffer(sums);
+// printBuffer(output);
