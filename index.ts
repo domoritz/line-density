@@ -1,5 +1,6 @@
 import embed from "vega-embed";
 import regl_ from "regl";
+import ndarray from "ndarray";
 
 function generateData(n: number, m: number) {
   const arr = new Array(n);
@@ -26,13 +27,15 @@ function range(n: number) {
   return out;
 }
 
-const NUM_SERIES = 10;
-const NUM_POINTS = 300;
+const NUM_SERIES = 1000;
+const NUM_POINTS = 256;
 
 const WIDTH = 64;
 const HEIGHT = 32;
 
+console.time("Generate data");
 const data = generateData(NUM_SERIES, NUM_POINTS);
+console.timeEnd("Generate data");
 
 const values = data
   .slice(0, 5)
@@ -42,7 +45,7 @@ const values = data
   .reduce((acc, val) => acc.concat(val), []);
 
 embed(
-  document.getElementById("vis"),
+  document.getElementById("lines"),
   {
     width: 600,
     data: {
@@ -110,7 +113,7 @@ const drawLine = regl({
   
   attributes: {
     time: regl.prop<any, "times">("times"),
-    value: regl.prop<any, "data">("data")
+    value: regl.prop<any, "values">("values")
   },
 
   colorMask: regl.prop<any, "colorMask">("colorMask"),
@@ -159,9 +162,9 @@ const sum = regl({
   void main() {
     // normalize by the column
     vec4 sum = vec4(0.0);
-    for (int j = 0; j <= ${HEIGHT}; j++) {
-      vec2 pos = uv + vec2(0.0, 2.0 * float(j) / float(${HEIGHT}) - 1.0);
-      vec4 value = texture2D(buffer, pos);
+    for (float j = 0.0; j < ${HEIGHT.toFixed(1)}; j++) {
+      float row = j / ${HEIGHT.toFixed(1)};
+      vec4 value = texture2D(buffer, vec2(uv.x, row));
       sum += value;
     }
 
@@ -191,8 +194,7 @@ const normalize = regl({
   void main() {
     vec4 value = texture2D(buffer, uv);
     vec4 sum = texture2D(sums, vec2(uv.x, 0));
-
-    gl_FragColor = vec4(value / sum);
+    gl_FragColor = value / sum;
   }`,
   
   uniforms: {
@@ -209,6 +211,30 @@ const normalize = regl({
     }
   },
   
+  framebuffer: regl.prop<any, "out">("out")
+});
+
+/**
+ * Merge rgba into one buffer
+ */
+const mergeBuffer = regl({
+  ...computeBase,
+  
+  frag: `
+  precision mediump float;
+  uniform sampler2D buffer;
+  varying vec2 uv;
+
+  void main() {
+    vec4 color = texture2D(buffer, uv);
+    float value = color.r + color.g + color.b + color.a;
+    gl_FragColor = vec4(vec3(value), 1.0);
+  }`,
+
+  uniforms: {
+    buffer: regl.prop<any, "buffer">("buffer")
+  },
+
   framebuffer: regl.prop<any, "out">("out")
 });
 
@@ -234,83 +260,110 @@ const drawBuffer = regl({
   }
 });
 
-/**
- * Helper function to print the r component of a buffer.
- */
-function printBuffer(b) {
-  regl({framebuffer: b})(() => {
-    const arr = regl.read();
-    const out = [];
-    for (var i = 0; i < arr.length; i += 4) {
-      out.push(arr[i]);
-    }
-    console.log(out);
-  })
-}
-
-const buffer = regl.framebuffer({
+const linesBuffer = regl.framebuffer({
   width: WIDTH,
   height: HEIGHT,
   colorFormat: "rgba",
   colorType: "float"
 });
 
-const sums = regl.framebuffer({
+const sumsBuffer = regl.framebuffer({
   width: WIDTH,
   height: 1,
   colorFormat: "rgba",
   colorType: "float"
 });
 
-const output = regl.framebuffer({
+const outBuffer = regl.framebuffer({
   width: WIDTH,
   height: HEIGHT,
   colorFormat: "rgba",
   colorType: "float"
 });
 
-// Should draw the normalized lines into the same buffer but currently only draws the first line.
-drawLine({
-  data: data[0],
-  times: range(NUM_POINTS),
-  maxY: 1,
-  maxX: NUM_POINTS,
-  colorMask: [true, false, false, false],
-  count: NUM_POINTS,
-  out: buffer
-})
-drawLine({
-  data: data[1],
-  times: range(NUM_POINTS),
-  maxY: 1,
-  maxX: NUM_POINTS,
-  colorMask: [false, true, false, false],
-  count: NUM_POINTS,
-  out: buffer
-})
-drawLine({
-  data: data[2],
-  times: range(NUM_POINTS),
-  maxY: 1,
-  maxX: NUM_POINTS,
-  colorMask: [false, false, true, false],
-  count: NUM_POINTS,
-  out: buffer
-})
-
-sum({
-  buffer: buffer,
-  out: sums
+const heatBuffer = regl.framebuffer({
+  width: WIDTH,
+  height: HEIGHT,
+  colorFormat: "rgba",
+  colorType: "float"
 });
 
-normalize({
-  buffer: buffer,
-  sums: sums,
-  out: output
+function colorMask(i) {
+  const mask = [false, false, false, false];
+  mask[i % 4] = true;
+  return mask;
+}
+
+console.time("Compute heatmap");
+for (let i = 0; i < data.length; i+=4) {
+  drawLine([i, i+1, i+2, i+3].filter(d => d < data.length).map((
+    d => ({
+      values: data[d],
+      times: range(NUM_POINTS),
+      maxY: 1,
+      maxX: NUM_POINTS,
+      colorMask: colorMask(d),
+      count: NUM_POINTS,
+      out: linesBuffer
+    })
+  )));
+
+  sum({
+    buffer: linesBuffer,
+    out: sumsBuffer
+  });
+
+  normalize({
+    buffer: linesBuffer,
+    sums: sumsBuffer,
+    out: outBuffer
+  });
+}
+
+mergeBuffer({
+  buffer: outBuffer,
+  out: heatBuffer
 });
+console.timeEnd("Compute heatmap");
 
 drawBuffer({
-  buffer: output
+  buffer: heatBuffer
 });
 
-printBuffer(sums);
+
+regl({framebuffer: heatBuffer})(() => {
+  const arr = regl.read();
+  const out = new Float32Array(arr.length / 4);
+  for (var i = 0; i < arr.length; i += 4) {
+    out[i/4] = arr[i];
+  }
+  
+  const heatmap = ndarray(out, [HEIGHT, WIDTH]);
+
+  const heatmapData = [];
+  for (let x = 0; x < WIDTH; x++) {
+    for (let y = 0; y < HEIGHT; y++) {
+      heatmapData.push({x,y,value: heatmap.get(y,x)})
+    }
+  }
+
+  embed(
+    document.getElementById("heat"),
+    {
+      width: 600,
+      height: 300,
+      data: {
+        values: heatmapData
+      },
+      mark: {
+        type: "rect"
+      },
+      encoding: {
+        color: { field: "value", type: "quantitative" },
+        x: { field: "x", type: "ordinal", scale: {padding: 0} },
+        y: { field: "y", type: "ordinal", scale: {reverse: true, padding: 0} }
+      }
+    },
+    { defaultStyle: true }
+  );
+});
