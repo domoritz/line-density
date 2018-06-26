@@ -1,9 +1,8 @@
-import embed from "vega-embed";
-import regl_ from "regl";
 import ndarray from "ndarray";
-import { NUM_SERIES, NUM_POINTS, CHART_WIDTH, HEIGHT, WIDTH } from "./constants";
-import vegaHeatmap from "./vega-heatmap";
+import regl_ from "regl";
+import { HEIGHT, NUM_POINTS, NUM_SERIES, WIDTH } from "./constants";
 import { generateData, range } from "./data-gen";
+import vegaHeatmap from "./vega-heatmap";
 import vegaLinechart from "./vega-linechart";
 
 console.time("Generate data");
@@ -56,12 +55,12 @@ const drawLine = regl({
     // write to the red channel
     gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);
   }`,
-  
+
   uniforms: {
     maxX: regl.prop<any, "maxX">("maxX"),
     maxY: regl.prop<any, "maxY">("maxY")
   },
-  
+
   attributes: {
     time: regl.prop<any, "times">("times"),
     value: regl.prop<any, "values">("values")
@@ -69,13 +68,13 @@ const drawLine = regl({
 
   colorMask: regl.prop<any, "colorMask">("colorMask"),
 
-  depth: {enable: false},
-  
+  depth: { enable: false },
+
   count: regl.prop<any, "count">("count"),
-  
+
   primitive: "line strip",
   lineWidth: () => 1,
-  
+
   framebuffer: regl.prop<any, "out">("out")
 });
 
@@ -90,22 +89,22 @@ const computeBase = {
     uv = 0.5 * (position + 1.0);
     gl_Position = vec4(position, 0, 1);
   }`,
-  
+
   attributes: {
     position: [-4, -4, 4, -4, 0, 4]
   },
 
-  depth: {enable: false},
+  depth: { enable: false },
 
   count: 3
-}
+};
 
 /**
  * Compute the sums of each column and put it into a framebuffer
  */
 const sum = regl({
   ...computeBase,
-  
+
   frag: `
   precision mediump float;
 
@@ -123,11 +122,11 @@ const sum = regl({
 
     gl_FragColor = sum;
   }`,
-  
+
   uniforms: {
     buffer: regl.prop<any, "buffer">("buffer")
   },
-  
+
   framebuffer: regl.prop<any, "out">("out")
 });
 
@@ -137,7 +136,7 @@ const sum = regl({
  */
 const normalize = regl({
   ...computeBase,
-  
+
   frag: `
   precision mediump float;
 
@@ -150,7 +149,7 @@ const normalize = regl({
     vec4 sum = texture2D(sums, vec2(uv.x, 0));
     gl_FragColor = value / sum;
   }`,
-  
+
   uniforms: {
     sums: regl.prop<any, "sums">("sums"),
     buffer: regl.prop<any, "buffer">("buffer")
@@ -160,11 +159,11 @@ const normalize = regl({
   blend: {
     enable: true,
     equation: {
-      rgb: 'add',
-      alpha: 'add'
+      rgb: "add",
+      alpha: "add"
     }
   },
-  
+
   framebuffer: regl.prop<any, "out">("out")
 });
 
@@ -173,7 +172,7 @@ const normalize = regl({
  */
 const mergeBuffer = regl({
   ...computeBase,
-  
+
   frag: `
   precision mediump float;
 
@@ -198,7 +197,7 @@ const mergeBuffer = regl({
  */
 const drawBuffer = regl({
   ...computeBase,
-  
+
   frag: `
   precision mediump float;
 
@@ -301,9 +300,9 @@ function colorMask(i) {
 const times = range(NUM_POINTS);
 
 console.time("Compute heatmap");
-for (let i = 0; i < data.length; i+=4) {
-  drawLine([i, i+1, i+2, i+3].filter(d => d < data.length).map((
-    d => ({
+for (let i = 0; i < data.length; i += 4) {
+  drawLine(
+    [i, i + 1, i + 2, i + 3].filter(d => d < data.length).map(d => ({
       values: data[d],
       times: times,
       maxY: 1,
@@ -311,8 +310,8 @@ for (let i = 0; i < data.length; i+=4) {
       colorMask: colorMask(d),
       count: NUM_POINTS,
       out: linesBuffer
-    })
-  )));
+    }))
+  );
 
   sum({
     buffer: linesBuffer,
@@ -333,26 +332,25 @@ mergeBuffer({
 
 console.timeEnd("Compute heatmap");
 
-
 // console.time("Render output");
 // drawBuffer({
 //   buffer: heatBuffer
 // });
 // console.timeEnd("Render output");
 
-regl({framebuffer: heatBuffer})(() => {
+regl({ framebuffer: heatBuffer })(() => {
   const arr = regl.read();
   const out = new Float32Array(arr.length / 4);
   for (var i = 0; i < arr.length; i += 4) {
-    out[i/4] = arr[i];
+    out[i / 4] = arr[i];
   }
-  
+
   const heatmap = ndarray(out, [HEIGHT, WIDTH]);
 
   const heatmapData = [];
   for (let x = 0; x < WIDTH; x++) {
     for (let y = 0; y < HEIGHT; y++) {
-      heatmapData.push({x,y,value: heatmap.get(y,x)})
+      heatmapData.push({ x, y, value: heatmap.get(y, x) });
     }
   }
 
