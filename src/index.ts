@@ -301,11 +301,14 @@ function colorMask(i) {
 
 const times = range(NUM_POINTS);
 
+const repeats = Math.floor(regl.limits.maxRenderbufferSize / WIDTH);
+console.log(`can repeat ${repeats} times`);
+
 console.time("Compute heatmap");
-for (let i = 0; i < data.length; i += 4) {
+for (let i = 0; i < data.shape[0]; i += 4) {
   drawLine(
-    [i, i + 1, i + 2, i + 3].filter(d => d < data.length).map(d => ({
-      values: data[d],
+    [i, i + 1, i + 2, i + 3].filter(d => d < data.shape[0]).map(d => ({
+      values: data.pick(i, null),
       times: times,
       maxY: 1,
       maxX: NUM_POINTS,

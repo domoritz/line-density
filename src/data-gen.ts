@@ -1,15 +1,24 @@
+import ndarray from "ndarray";
+import { NON_TYPE_DOMAIN_RANGE_VEGA_SCALE_PROPERTIES } from "vega-lite/build/src/scale";
+
 export function generateData(n: number, m: number) {
-  const arr = new Array(n);
+  const arr = ndarray(new Float32Array(n * m), [n, m]);
 
   for (let i = 0; i < n; ++i) {
-    const d = (arr[i] = new Float32Array(m));
     for (let j = 0, v = 0; j < m; ++j) {
-      d[j] = v = walk(v);
+      arr.set(i, j, (v = walk(v)));
     }
   }
 
   function walk(v) {
-    return Math.max(0, Math.min(1, v + (Math.random() - 0.5) * 0.05));
+    const value = v + (Math.random() - 0.5) * 0.05;
+    if (value < 0) {
+      return 0;
+    }
+    if (value > 1) {
+      return 1;
+    }
+    return value;
   }
 
   return arr;

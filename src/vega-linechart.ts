@@ -1,13 +1,15 @@
 import { CHART_WIDTH } from "./constants";
 import embed from "vega-embed";
+import ndarray from "ndarray";
 
-export default function(data) {
-  const values = data
-    .slice(0, 5)
-    .map((series, group) =>
-      [].slice.call(series).map((value, time) => ({ group, time, value }))
-    )
-    .reduce((acc, val) => acc.concat(val), []);
+export default function(data: ndarray) {
+  const values = [];
+
+  for (let i = 0; i < 5 && i < data.shape[0]; i++) {
+    for (let j = 0; j < data.shape[1]; j++) {
+      values.push({ group: i, time: j, value: data.get(i, j) });
+    }
+  }
 
   const encoding: any = {
     color: { field: "group", type: "nominal", title: "Series" },
