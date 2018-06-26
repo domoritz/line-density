@@ -5,6 +5,8 @@ import { generateData, range } from "./data-gen";
 import vegaHeatmap from "./vega-heatmap";
 import vegaLinechart from "./vega-linechart";
 
+document.getElementById("count").innerText = `${NUM_SERIES}`;
+
 console.time("Generate data");
 const data = generateData(NUM_SERIES, NUM_POINTS);
 console.timeEnd("Generate data");

@@ -5,12 +5,21 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>Million time series</title>
+    <title>Time Series Density</title>
     <link rel="stylesheet" href="main.css">
 </head>
 
 <body>
     <div class="wrapper">
+        <h1>Time Series Density Heatmap</h1>
+        <p>
+            Demonstration of computing a density representation for time series. The density in each time series is normalized by the
+            arc length to ensure that each time series contributes equally to the overall density.
+        </p>
+        <p>
+            This demonstration uses
+            <span id="count"></span> time series.
+        </p>
         <div>
             <div id="lines"></div>
         </div>
