@@ -1,9 +1,16 @@
 import ndarray from "ndarray";
 import regl_ from "regl";
-import { HEIGHT, NUM_POINTS, NUM_SERIES, WIDTH } from "./constants";
-import { generateData, range } from "./data-gen";
+import {
+  HEIGHT,
+  NUM_POINTS,
+  NUM_SERIES,
+  WIDTH,
+  MAX_REPEATS
+} from "./constants";
+import { generateData } from "./data-gen";
 import vegaHeatmap from "./vega-heatmap";
 import vegaLinechart from "./vega-linechart";
+import { float as f, range } from "./utils";
 
 document.getElementById("count").innerText = `${NUM_SERIES}`;
 
@@ -13,20 +20,22 @@ console.timeEnd("Generate data");
 
 vegaLinechart(data);
 
-// const canvas = document.getElementById("#regl") as HTMLCanvasElement;
-const canvas = document.createElement("canvas");
+const canvas = document.getElementById("regl") as HTMLCanvasElement;
+// const canvas = document.createElement("canvas");
 
 const regl = regl_({
   canvas: canvas,
   extensions: ["OES_texture_float"]
 });
 
-// console.log("limits", regl.limits);
+const maxRenderbufferSize = regl.limits.maxRenderbufferSize;
 
-// regl.clear({
-//   color: [0, 0, 0, 1],
-//   depth: 1
-// });
+const maxRepeats = Math.floor(maxRenderbufferSize / WIDTH);
+const repeats = Math.min(maxRepeats, Math.floor(NUM_SERIES / 4), MAX_REPEATS);
+
+console.log(`Can repeat ${maxRepeats} times. Repeating ${repeats} times.`);
+
+const reshapedWidth = WIDTH * repeats;
 
 const drawLine = regl({
   vert: `
@@ -37,16 +46,22 @@ const drawLine = regl({
 
   uniform float maxX;
   uniform float maxY;
+  uniform float offset;
 
   void main() {
-    // time and value start at 0
-    float x = time / maxX;
+    float repeats = ${f(repeats)};
+
+    // time and value start at 0 so we can simplify the scaling
+    float x = offset / repeats + time / (maxX * repeats);
     float y = value / maxY;
+
+    // squeeze y by 0.3 pixels so that the line is guaranteed to be drawn
+    float yStretch = 2.0 - 0.6 / ${f(HEIGHT)};
 
     // scale to [-1, 1]
     gl_Position = vec4(
       2.0 * (x - 0.5),
-      2.0 * (y - 0.5),
+      yStretch * (y - 0.5),
       0, 1);
   }`,
 
@@ -54,13 +69,14 @@ const drawLine = regl({
   precision mediump float;
 
   void main() {
-    // write to the red channel
+    // we will control the color with the color mask
     gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);
   }`,
 
   uniforms: {
     maxX: regl.prop<any, "maxX">("maxX"),
-    maxY: regl.prop<any, "maxY">("maxY")
+    maxY: regl.prop<any, "maxY">("maxY"),
+    offset: regl.prop<any, "offset">("offset")
   },
 
   attributes: {
@@ -116,13 +132,14 @@ const sum = regl({
   void main() {
     // normalize by the column
     vec4 sum = vec4(0.0);
-    for (float j = 0.0; j < ${HEIGHT.toFixed(1)}; j++) {
-      float row = j / ${HEIGHT.toFixed(1)};
+    for (float j = 0.0; j < ${f(HEIGHT)}; j++) {
+      float row = (j + 0.5) / ${f(HEIGHT)};
       vec4 value = texture2D(buffer, vec2(uv.x, row));
       sum += value;
     }
 
-    gl_FragColor = sum;
+    // sum should be at least 1, prevents problems with empty buffers
+    gl_FragColor = max(vec4(1), sum);
   }`,
 
   uniforms: {
@@ -144,11 +161,13 @@ const normalize = regl({
 
   uniform sampler2D buffer;
   uniform sampler2D sums;
+  uniform sampler2D inbuffer;
   varying vec2 uv;
 
   void main() {
     vec4 value = texture2D(buffer, uv);
-    vec4 sum = texture2D(sums, vec2(uv.x, 0));
+    vec4 sum = texture2D(sums, vec2(uv.x, 0.5));
+
     gl_FragColor = value / sum;
   }`,
 
@@ -157,20 +176,27 @@ const normalize = regl({
     buffer: regl.prop<any, "buffer">("buffer")
   },
 
-  // alpha blending
+  // additive blending
   blend: {
     enable: true,
+    func: {
+      srcRGB: "one",
+      srcAlpha: 1,
+      dstRGB: "one",
+      dstAlpha: 1
+    },
     equation: {
       rgb: "add",
       alpha: "add"
-    }
+    },
+    color: [0, 0, 0, 0]
   },
 
   framebuffer: regl.prop<any, "out">("out")
 });
 
 /**
- * Merge rgba into one buffer
+ * Merge rgba from the wide buffer into one heatmap buffer
  */
 const mergeBuffer = regl({
   ...computeBase,
@@ -179,10 +205,18 @@ const mergeBuffer = regl({
   precision mediump float;
 
   uniform sampler2D buffer;
+
   varying vec2 uv;
 
   void main() {
-    vec4 color = texture2D(buffer, uv);
+    vec4 color = vec4(0);
+
+    // collect all columns
+    for (float i = 0.0; i < ${f(repeats)}; i++) {
+      float x = (i + uv.x) / ${f(repeats)};
+      color += texture2D(buffer, vec2(x, uv.y));
+    }
+
     float value = color.r + color.g + color.b + color.a;
     gl_FragColor = vec4(vec3(value), 1.0);
   }`,
@@ -195,9 +229,9 @@ const mergeBuffer = regl({
 });
 
 /**
- * Helper function to draw a bufer.
+ * Helper function to draw a the texture in a buffer.
  */
-const drawBuffer = regl({
+const drawTexture = regl({
   ...computeBase,
 
   frag: `
@@ -207,57 +241,10 @@ const drawBuffer = regl({
   
   varying vec2 uv;
   
-  vec4 viridis(float x) {
-    const float e0 = 0.0;
-    const vec4 v0 = vec4(0.26666666666666666,0.00392156862745098,0.32941176470588235,1);
-    const float e1 = 0.13;
-    const vec4 v1 = vec4(0.2784313725490196,0.17254901960784313,0.47843137254901963,1);
-    const float e2 = 0.25;
-    const vec4 v2 = vec4(0.23137254901960785,0.3176470588235294,0.5450980392156862,1);
-    const float e3 = 0.38;
-    const vec4 v3 = vec4(0.17254901960784313,0.44313725490196076,0.5568627450980392,1);
-    const float e4 = 0.5;
-    const vec4 v4 = vec4(0.12941176470588237,0.5647058823529412,0.5529411764705883,1);
-    const float e5 = 0.63;
-    const vec4 v5 = vec4(0.15294117647058825,0.6784313725490196,0.5058823529411764,1);
-    const float e6 = 0.75;
-    const vec4 v6 = vec4(0.3607843137254902,0.7843137254901961,0.38823529411764707,1);
-    const float e7 = 0.88;
-    const vec4 v7 = vec4(0.6666666666666666,0.8627450980392157,0.19607843137254902,1);
-    const float e8 = 1.0;
-    const vec4 v8 = vec4(0.9921568627450981,0.9058823529411765,0.1450980392156863,1);
-    float a0 = smoothstep(e0,e1,x);
-    float a1 = smoothstep(e1,e2,x);
-    float a2 = smoothstep(e2,e3,x);
-    float a3 = smoothstep(e3,e4,x);
-    float a4 = smoothstep(e4,e5,x);
-    float a5 = smoothstep(e5,e6,x);
-    float a6 = smoothstep(e6,e7,x);
-    float a7 = smoothstep(e7,e8,x);
-    return max(mix(v0,v1,a0)*step(e0,x)*step(x,e1),
-      max(mix(v1,v2,a1)*step(e1,x)*step(x,e2),
-      max(mix(v2,v3,a2)*step(e2,x)*step(x,e3),
-      max(mix(v3,v4,a3)*step(e3,x)*step(x,e4),
-      max(mix(v4,v5,a4)*step(e4,x)*step(x,e5),
-      max(mix(v5,v6,a5)*step(e5,x)*step(x,e6),
-      max(mix(v6,v7,a6)*step(e6,x)*step(x,e7),mix(v7,v8,a7)*step(e7,x)*step(x,e8)
-    )))))));
-  }
-  
   void main() {
-    // inefficient: get maximum value in buffer
-    float maxValue = 0.0;
-    for (float i = 0.0; i < ${WIDTH.toFixed(1)}; i++) {
-      float col = i / ${WIDTH.toFixed(1)};
-      for (float j = 0.0; j < ${HEIGHT.toFixed(1)}; j++) {
-        float row = j / ${HEIGHT.toFixed(1)};
-        maxValue = max(maxValue, texture2D(buffer, vec2(row, col)).r);
-      }
-    }
-
-    // get r and draw it with viridis
-    float value = texture2D(buffer, uv).r / maxValue;
-    gl_FragColor = viridis(value);
+    // get r and draw it
+    vec3 value = texture2D(buffer, uv).rgb;
+    gl_FragColor = vec4(value, 1.0);
   }`,
 
   uniforms: {
@@ -266,21 +253,21 @@ const drawBuffer = regl({
 });
 
 const linesBuffer = regl.framebuffer({
-  width: WIDTH,
+  width: reshapedWidth,
   height: HEIGHT,
   colorFormat: "rgba",
   colorType: "float"
 });
 
 const sumsBuffer = regl.framebuffer({
-  width: WIDTH,
+  width: reshapedWidth,
   height: 1,
   colorFormat: "rgba",
   colorType: "float"
 });
 
-const outBuffer = regl.framebuffer({
-  width: WIDTH,
+const resultBuffer = regl.framebuffer({
+  width: reshapedWidth,
   height: HEIGHT,
   colorFormat: "rgba",
   colorType: "float"
@@ -299,24 +286,46 @@ function colorMask(i) {
   return mask;
 }
 
+// For now, assume that all time series get the same time points
 const times = range(NUM_POINTS);
 
-const repeats = Math.floor(regl.limits.maxRenderbufferSize / WIDTH);
-console.log(`can repeat ${repeats} times`);
-
 console.time("Compute heatmap");
-for (let i = 0; i < data.shape[0]; i += 4) {
-  drawLine(
-    [i, i + 1, i + 2, i + 3].filter(d => d < data.shape[0]).map(d => ({
-      values: data.pick(i, null),
+
+// batches of 4 * repeats
+const batchSize = 4 * repeats;
+let lines = new Array(batchSize);
+
+for (let b = 0; b < NUM_SERIES; b += batchSize) {
+  // clear the lines buffer before the next batch
+  regl.clear({
+    color: [0, 0, 0, 0],
+    framebuffer: linesBuffer
+  });
+
+  // offset within the batch
+  for (let o = 0; o < batchSize; o++) {
+    // the actual series id
+    const s = b + o;
+
+    if (s >= NUM_SERIES) {
+      // slice off batches that we don't need anymore
+      lines = lines.slice(0, o);
+      continue;
+    }
+
+    lines[o] = {
+      values: data.pick(s, null),
       times: times,
       maxY: 1,
       maxX: NUM_POINTS,
-      colorMask: colorMask(d),
+      offset: Math.floor(o / 4),
+      colorMask: colorMask(o),
       count: NUM_POINTS,
       out: linesBuffer
-    }))
-  );
+    };
+  }
+
+  drawLine(lines);
 
   sum({
     buffer: linesBuffer,
@@ -326,27 +335,26 @@ for (let i = 0; i < data.shape[0]; i += 4) {
   normalize({
     buffer: linesBuffer,
     sums: sumsBuffer,
-    out: outBuffer
+    out: resultBuffer
   });
 }
 
 mergeBuffer({
-  buffer: outBuffer,
+  buffer: resultBuffer,
   out: heatBuffer
 });
 
 console.timeEnd("Compute heatmap");
 
-// console.time("Render output");
-// drawBuffer({
-//   buffer: heatBuffer
-// });
-// console.timeEnd("Render output");
+drawTexture({
+  buffer: resultBuffer
+});
 
 regl({ framebuffer: heatBuffer })(() => {
   const arr = regl.read();
   const out = new Float32Array(arr.length / 4);
-  for (var i = 0; i < arr.length; i += 4) {
+
+  for (let i = 0; i < arr.length; i += 4) {
     out[i / 4] = arr[i];
   }
 

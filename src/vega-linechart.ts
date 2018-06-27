@@ -5,7 +5,9 @@ import ndarray from "ndarray";
 export default function(data: ndarray) {
   const values = [];
 
-  for (let i = 0; i < 5 && i < data.shape[0]; i++) {
+  const n = 10;
+
+  for (let i = 0; i < n && i < data.shape[0]; i++) {
     for (let j = 0; j < data.shape[1]; j++) {
       values.push({ group: i, time: j, value: data.get(i, j) });
     }
@@ -20,7 +22,7 @@ export default function(data: ndarray) {
   embed(
     document.getElementById("lines"),
     {
-      title: "Sample of the first 5 time series",
+      title: `Sample of the first ${n} time series`,
       width: CHART_WIDTH,
       data: {
         values: values

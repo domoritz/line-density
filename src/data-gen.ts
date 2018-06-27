@@ -1,8 +1,11 @@
 import ndarray from "ndarray";
-import { NON_TYPE_DOMAIN_RANGE_VEGA_SCALE_PROPERTIES } from "vega-lite/build/src/scale";
+import { random } from "./utils";
+import { USE_REAL_RANDOM } from "./constants";
 
-export function generateData(n: number, m: number) {
+export function generateData(n: number, m: number): ndarray {
   const arr = ndarray(new Float32Array(n * m), [n, m]);
+
+  const rand = USE_REAL_RANDOM ? Math.random : random(42);
 
   for (let i = 0; i < n; ++i) {
     for (let j = 0, v = 0; j < m; ++j) {
@@ -11,7 +14,7 @@ export function generateData(n: number, m: number) {
   }
 
   function walk(v) {
-    const value = v + (Math.random() - 0.5) * 0.05;
+    const value = v + (rand() - 0.5) * 0.05;
     if (value < 0) {
       return 0;
     }
@@ -22,12 +25,4 @@ export function generateData(n: number, m: number) {
   }
 
   return arr;
-}
-
-export function range(n: number) {
-  const out = new Float32Array(n);
-  for (let i = 0; i < n; i++) {
-    out[i] = i;
-  }
-  return out;
 }
