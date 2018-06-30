@@ -5,7 +5,9 @@ import {
   NUM_POINTS,
   NUM_SERIES,
   WIDTH,
-  MAX_REPEATS
+  MAX_REPEATS_X,
+  MAX_REPEATS_Y,
+  DEBUG_CANVAS
 } from "./constants";
 import { generateData } from "./data-gen";
 import vegaHeatmap from "./vega-heatmap";
@@ -20,8 +22,13 @@ console.timeEnd("Generate data");
 
 vegaLinechart(data);
 
-const canvas = document.getElementById("regl") as HTMLCanvasElement;
-// const canvas = document.createElement("canvas");
+let canvas = document.createElement("canvas");
+
+if (DEBUG_CANVAS) {
+  document.getElementById("regl").appendChild(canvas);
+} else {
+  document.getElementById("regl").innerText = "";
+}
 
 const regl = regl_({
   canvas: canvas,
@@ -30,12 +37,27 @@ const regl = regl_({
 
 const maxRenderbufferSize = regl.limits.maxRenderbufferSize;
 
-const maxRepeats = Math.floor(maxRenderbufferSize / WIDTH);
-const repeats = Math.min(maxRepeats, Math.floor(NUM_SERIES / 4), MAX_REPEATS);
+const maxRepeatsX = Math.floor(maxRenderbufferSize / WIDTH);
+const maxRepeatsY = Math.floor(maxRenderbufferSize / HEIGHT);
+const repeatsX = Math.min(
+  maxRepeatsX,
+  Math.floor(NUM_SERIES / 4),
+  MAX_REPEATS_X
+);
+const repeatsY = Math.min(
+  maxRepeatsY,
+  Math.ceil(NUM_SERIES / (repeatsX * 4)),
+  MAX_REPEATS_Y
+);
 
-console.log(`Can repeat ${maxRepeats} times. Repeating ${repeats} times.`);
+console.log(
+  `Can repeat ${maxRepeatsX}x${maxRepeatsY} times. Repeating ${repeatsX}x${repeatsY} times.`
+);
 
-const reshapedWidth = WIDTH * repeats;
+const reshapedWidth = WIDTH * repeatsX;
+const reshapedHeight = HEIGHT * repeatsY;
+
+console.log(`Canvas size ${reshapedWidth}x${reshapedHeight}.`);
 
 const drawLine = regl({
   vert: `
@@ -46,22 +68,30 @@ const drawLine = regl({
 
   uniform float maxX;
   uniform float maxY;
-  uniform float offset;
+  uniform float column;
+  uniform float row;
 
   void main() {
-    float repeats = ${f(repeats)};
+    float repeatsX = ${f(repeatsX)};
+    float repeatsY = ${f(repeatsY)};
 
     // time and value start at 0 so we can simplify the scaling
-    float x = offset / repeats + time / (maxX * repeats);
-    float y = value / maxY;
+    float x = column / repeatsX + time / (maxX * repeatsX);
+    
+    // move up by 0.3 pixels so that the line is guaranteed to be drawn
+    float yOffset = row / repeatsY + 0.3 / ${f(reshapedHeight)};
+    // squeeze by 0.6 pixels
+    float squeeze = 1.0 - 0.6 / ${f(HEIGHT)};
+    float yValue = value / (maxY * repeatsY) * squeeze;
+    float y = yOffset + yValue;
 
     // squeeze y by 0.3 pixels so that the line is guaranteed to be drawn
-    float yStretch = 2.0 - 0.6 / ${f(HEIGHT)};
+    float yStretch = 2.0 - 0.6 / ${f(reshapedHeight)};
 
     // scale to [-1, 1]
     gl_Position = vec4(
       2.0 * (x - 0.5),
-      yStretch * (y - 0.5),
+      2.0 * (y - 0.5),
       0, 1);
   }`,
 
@@ -76,7 +106,8 @@ const drawLine = regl({
   uniforms: {
     maxX: regl.prop<any, "maxX">("maxX"),
     maxY: regl.prop<any, "maxY">("maxY"),
-    offset: regl.prop<any, "offset">("offset")
+    column: regl.prop<any, "column">("column"),
+    row: regl.prop<any, "row">("row")
   },
 
   attributes: {
@@ -130,11 +161,13 @@ const sum = regl({
   varying vec2 uv;
 
   void main() {
+    float texelRowStart = floor(uv.y * ${f(repeatsY)}) / ${f(repeatsY)};
+
     // normalize by the column
     vec4 sum = vec4(0.0);
     for (float j = 0.0; j < ${f(HEIGHT)}; j++) {
-      float row = (j + 0.5) / ${f(HEIGHT)};
-      vec4 value = texture2D(buffer, vec2(uv.x, row));
+      float texelRow = texelRowStart + (j + 0.5) / ${f(reshapedHeight)};
+      vec4 value = texture2D(buffer, vec2(uv.x, texelRow));
       sum += value;
     }
 
@@ -161,12 +194,11 @@ const normalize = regl({
 
   uniform sampler2D buffer;
   uniform sampler2D sums;
-  uniform sampler2D inbuffer;
   varying vec2 uv;
 
   void main() {
     vec4 value = texture2D(buffer, uv);
-    vec4 sum = texture2D(sums, vec2(uv.x, 0.5));
+    vec4 sum = texture2D(sums, uv);
 
     gl_FragColor = value / sum;
   }`,
@@ -198,7 +230,7 @@ const normalize = regl({
 /**
  * Merge rgba from the wide buffer into one heatmap buffer
  */
-const mergeBuffer = regl({
+const mergeBufferHorizontally = regl({
   ...computeBase,
 
   frag: `
@@ -212,9 +244,38 @@ const mergeBuffer = regl({
     vec4 color = vec4(0);
 
     // collect all columns
-    for (float i = 0.0; i < ${f(repeats)}; i++) {
-      float x = (i + uv.x) / ${f(repeats)};
+    for (float i = 0.0; i < ${f(repeatsX)}; i++) {
+      float x = (i + uv.x) / ${f(repeatsX)};
       color += texture2D(buffer, vec2(x, uv.y));
+    }
+
+    float value = color.r + color.g + color.b + color.a;
+    gl_FragColor = vec4(vec3(value), 1.0);
+  }`,
+
+  uniforms: {
+    buffer: regl.prop<any, "buffer">("buffer")
+  },
+
+  framebuffer: regl.prop<any, "out">("out")
+});
+const mergeBufferVertically = regl({
+  ...computeBase,
+
+  frag: `
+  precision mediump float;
+
+  uniform sampler2D buffer;
+
+  varying vec2 uv;
+
+  void main() {
+    vec4 color = vec4(0);
+
+    // collect all rows
+    for (float i = 0.0; i < ${f(repeatsY)}; i++) {
+      float y = (i + uv.y) / ${f(repeatsY)};
+      color += texture2D(buffer, vec2(uv.x, y));
     }
 
     float value = color.r + color.g + color.b + color.a;
@@ -247,6 +308,8 @@ const drawTexture = regl({
     gl_FragColor = vec4(value, 1.0);
   }`,
 
+  colorMask: regl.prop<any, "colorMask">("colorMask"),
+
   uniforms: {
     buffer: regl.prop<any, "buffer">("buffer")
   }
@@ -254,21 +317,28 @@ const drawTexture = regl({
 
 const linesBuffer = regl.framebuffer({
   width: reshapedWidth,
-  height: HEIGHT,
+  height: reshapedHeight,
   colorFormat: "rgba",
-  colorType: "float"
+  colorType: "uint8"
 });
 
 const sumsBuffer = regl.framebuffer({
   width: reshapedWidth,
-  height: 1,
+  height: repeatsY,
   colorFormat: "rgba",
   colorType: "float"
 });
 
 const resultBuffer = regl.framebuffer({
   width: reshapedWidth,
-  height: HEIGHT,
+  height: reshapedHeight,
+  colorFormat: "rgba",
+  colorType: "float"
+});
+
+const preMergedBuffer = regl.framebuffer({
+  width: WIDTH,
+  height: reshapedHeight,
   colorFormat: "rgba",
   colorType: "float"
 });
@@ -292,63 +362,103 @@ const times = range(NUM_POINTS);
 console.time("Compute heatmap");
 
 // batches of 4 * repeats
-const batchSize = 4 * repeats;
-let lines = new Array(batchSize);
+const batchSize = 4 * repeatsX * repeatsY;
 
+// index of series
+let series = 0;
+// how many series have already been drawn
+let finishedSeries = 0;
+
+console.time("Prepare Batch");
 for (let b = 0; b < NUM_SERIES; b += batchSize) {
+  // array to hold the lines that should be rendered
+  let lines = new Array(Math.min(batchSize, NUM_SERIES - series));
+
   // clear the lines buffer before the next batch
   regl.clear({
     color: [0, 0, 0, 0],
     framebuffer: linesBuffer
   });
 
-  // offset within the batch
-  for (let o = 0; o < batchSize; o++) {
-    // the actual series id
-    const s = b + o;
+  loop: for (let row = 0; row < repeatsY; row++) {
+    for (let i = 0; i < 4 * repeatsX; i++) {
+      if (series >= NUM_SERIES) {
+        break loop;
+      }
 
-    if (s >= NUM_SERIES) {
-      // slice off batches that we don't need anymore
-      lines = lines.slice(0, o);
-      continue;
+      // console.log(series, Math.floor(i / 4), row);
+
+      lines[series - finishedSeries] = {
+        values: data.pick(series, null),
+        times: times,
+        maxY: 0.6,
+        maxX: NUM_POINTS,
+        column: Math.floor(i / 4),
+        row: row,
+        colorMask: colorMask(i),
+        count: NUM_POINTS,
+        out: linesBuffer
+      };
+
+      series++;
     }
-
-    lines[o] = {
-      values: data.pick(s, null),
-      times: times,
-      maxY: 1,
-      maxX: NUM_POINTS,
-      offset: Math.floor(o / 4),
-      colorMask: colorMask(o),
-      count: NUM_POINTS,
-      out: linesBuffer
-    };
   }
+  console.timeEnd("Prepare Batch");
 
+  console.log(`Drawing ${lines.length} lines.`);
+
+  console.time("regl: drawLine");
   drawLine(lines);
+  console.timeEnd("regl: drawLine");
 
+  finishedSeries += lines.length;
+
+  console.time("regl: sum");
   sum({
     buffer: linesBuffer,
     out: sumsBuffer
   });
+  console.timeEnd("regl: sum");
 
+  console.time("regl: normalize");
   normalize({
     buffer: linesBuffer,
     sums: sumsBuffer,
     out: resultBuffer
   });
+  console.timeEnd("regl: normalize");
 }
 
-mergeBuffer({
+console.time("regl: merge");
+mergeBufferHorizontally({
   buffer: resultBuffer,
+  out: preMergedBuffer
+});
+
+mergeBufferVertically({
+  buffer: preMergedBuffer,
   out: heatBuffer
 });
+console.timeEnd("regl: merge");
 
 console.timeEnd("Compute heatmap");
 
-drawTexture({
-  buffer: resultBuffer
-});
+if (DEBUG_CANVAS) {
+  drawTexture({
+    buffer: resultBuffer,
+    colorMask: [true, true, true, true]
+  });
+}
+
+// print buffer values
+// regl({ framebuffer: sumsBuffer })(() => {
+//   const arr = regl.read();
+//   const out = new Float32Array(arr.length / 4);
+//   for (let i = 0; i < arr.length; i += 4) {
+//     out[i / 4] = arr[i];
+//   }
+//   console.log(out);
+// });
 
 regl({ framebuffer: heatBuffer })(() => {
   const arr = regl.read();
