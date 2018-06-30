@@ -1,5 +1,6 @@
 import embed from "vega-embed";
 import { CHART_WIDTH, CHART_HEIGHT } from "./constants";
+import { DEFAULT_REQUIRED_CHANNEL_MAP } from "vega-lite/build/src/validate";
 
 export default function(heatmapData) {
   embed(
@@ -76,15 +77,16 @@ export default function(heatmapData) {
       scales: [
         {
           name: "x",
-          type: "linear",
+          type: "band",
           domain: { data: "table", field: "x" },
           range: "width"
         },
         {
           name: "y",
-          type: "linear",
+          type: "band",
           domain: { data: "table", field: "y" },
-          range: "height"
+          range: "height",
+          reverse: true
         },
         {
           name: "color",
@@ -114,10 +116,7 @@ export default function(heatmapData) {
           type: "gradient",
           title: "Density",
           titleFontSize: 12,
-          titlePadding: 4,
-          gradientLength: { signal: "height - 16" },
-          offset: 50,
-          padding: 0
+          gradientLength: { signal: "height - 16" }
         }
       ],
 
@@ -127,10 +126,10 @@ export default function(heatmapData) {
           from: { data: "table" },
           encode: {
             enter: {
-              x: { scale: "x", field: "x", offset: -0.5 }, // HACK
-              y: { scale: "y", field: "y", offset: 0.5 },
-              x2: { scale: "x", signal: "datum.x + 1" },
-              y2: { scale: "y", signal: "datum.y + 1" },
+              x: { scale: "x", field: "x" },
+              y: { scale: "y", field: "y" },
+              width: { scale: "x", band: 1 },
+              height: { scale: "y", band: 1 },
               tooltip: { signal: "datum" }
             },
             update: {
