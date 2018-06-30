@@ -12,3 +12,4 @@ https://github.com/domoritz/line-density-rust for a parallel rust implementation
 * https://github.com/Erkaman/regl-cnn/blob/gh-pages/src/gpu.js
 * https://github.com/realazthat/glsl-sat
 * https://github.com/regl-project/regl/blob/gh-pages/example/graph.js
+* https://beta.observablehq.com/@tmcw/game-of-life-with-regl
