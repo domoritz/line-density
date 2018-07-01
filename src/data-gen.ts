@@ -2,13 +2,26 @@ import ndarray from "ndarray";
 import { random } from "./utils";
 import { USE_REAL_RANDOM } from "./constants";
 
-export function generateData(n: number, m: number): ndarray {
-  const arr = ndarray(new Float32Array(n * m), [n, m]);
+/**
+ * Generate test time series with a random walk.
+ * @param numSeries Number of series.
+ * @param numDataPoints Number of data points per series.
+ */
+export function generateData(
+  numSeries: number,
+  numDataPoints: number
+): ndarray {
+  console.time("Generate data");
+
+  const arr = ndarray(new Float32Array(numSeries * numDataPoints), [
+    numSeries,
+    numDataPoints
+  ]);
 
   const rand = USE_REAL_RANDOM ? Math.random : random(42);
 
-  for (let i = 0; i < n; ++i) {
-    for (let j = 0, v = 0; j < m; ++j) {
+  for (let i = 0; i < numSeries; ++i) {
+    for (let j = 0, v = 0; j < numDataPoints; ++j) {
       arr.set(i, j, (v = walk(v)));
     }
   }
@@ -23,6 +36,8 @@ export function generateData(n: number, m: number): ndarray {
     }
     return value;
   }
+
+  console.timeEnd("Generate data");
 
   return arr;
 }

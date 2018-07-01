@@ -13,16 +13,15 @@ import vegaHeatmap from "./vega-heatmap";
 
 document.getElementById("count").innerText = `${NUM_SERIES}`;
 
-console.time("Generate data");
 const data = generateData(NUM_SERIES, NUM_POINTS);
-console.timeEnd("Generate data");
 
 vegaLinechart(data);
 
-let canvas = document.createElement("canvas");
+let canvas;
 
 document.getElementById("regl").innerText = "";
 if (DEBUG_CANVAS) {
+  canvas = document.createElement("canvas");
   document.getElementById("regl").appendChild(canvas);
 }
 
@@ -35,6 +34,6 @@ const maxY = (data.data as Float32Array).reduce(
 const binConfigX = bin({ maxBins: MAXBINS_X, extent: [0, NUM_POINTS - 1] });
 const binConfigY = bin({ maxBins: MAXBINS_Y, extent: [0, maxY] });
 
-compute(canvas, data, binConfigX, binConfigY).then(heatmapData => {
+compute(data, binConfigX, binConfigY, canvas).then(heatmapData => {
   vegaHeatmap(heatmapData, binConfigX, binConfigY);
 });

@@ -4,22 +4,47 @@ import { DEBUG_CANVAS, MAX_REPEATS_X, MAX_REPEATS_Y } from "./constants";
 import { float as f, range } from "./utils";
 
 export interface BinConfig {
+  /**
+   * The start of the range.
+   */
   start: number;
+  /**
+   * The end of the range.
+   */
   stop: number;
+  /**
+   * The size of bin steps.
+   */
   step: number;
 }
 
 export interface Result {
+  /**
+   * Start of the time bin.
+   */
   x: number;
+  /**
+   * Start fo teh value bin.
+   */
   y: number;
+  /**
+   * Computed density.
+   */
   value: number;
 }
 
+/**
+ * Compute a density heatmap.
+ * @param data The time series data as an ndarray.
+ * @param binX Configuration for the binning along the time dimension.
+ * @param binY Configuration for the binning along the value dimension.
+ * @param canvas The canvas to use for debug output.
+ */
 export async function compute(
-  canvas: HTMLCanvasElement,
   data: ndarray,
   binX: BinConfig,
-  binY: BinConfig
+  binY: BinConfig,
+  canvas?: HTMLCanvasElement
 ) {
   const [numSeries, numDataPoints] = data.shape;
 
@@ -29,7 +54,7 @@ export async function compute(
   console.info(`Heatmap size: ${heatmapWidth}x${heatmapHeight}`);
 
   const regl = regl_({
-    canvas: canvas,
+    canvas: canvas || document.createElement("canvas"),
     extensions: ["OES_texture_float"]
   });
 
