@@ -1,8 +1,9 @@
 import embed from "vega-embed";
 import { CHART_WIDTH, CHART_HEIGHT } from "./constants";
-import { DEFAULT_REQUIRED_CHANNEL_MAP } from "vega-lite/build/src/validate";
 
-export default function(heatmapData) {
+export default function(heatmapData, binConfigX, binConfigY) {
+  console.log(heatmapData, binConfigX, binConfigY);
+
   embed(
     document.getElementById("heat"),
     {
@@ -20,6 +21,8 @@ export default function(heatmapData) {
       },
 
       signals: [
+        { name: "binX", update: JSON.stringify(binConfigX) },
+        { name: "binY", update: JSON.stringify(binConfigY) },
         {
           name: "palette",
           value: "Viridis",
@@ -77,14 +80,18 @@ export default function(heatmapData) {
       scales: [
         {
           name: "x",
-          type: "band",
-          domain: { data: "table", field: "x" },
+          type: "bin-linear",
+          domain: {
+            signal: "sequence(binX.start, binX.stop + binX.step, binX.step)"
+          },
           range: "width"
         },
         {
           name: "y",
-          type: "band",
-          domain: { data: "table", field: "y" },
+          type: "bin-linear",
+          domain: {
+            signal: "sequence(binY.start, binY.stop + binY.step, binY.step)"
+          },
           range: "height",
           reverse: true
         },
@@ -127,9 +134,17 @@ export default function(heatmapData) {
           encode: {
             enter: {
               x: { scale: "x", field: "x" },
+              x2: {
+                scale: "x",
+                signal: `datum.x + binX.step`,
+                offset: 0.5
+              },
               y: { scale: "y", field: "y" },
-              width: { scale: "x", band: 1 },
-              height: { scale: "y", band: 1 },
+              y2: {
+                scale: "y",
+                signal: `datum.y + binY.step`,
+                offset: -0.5
+              },
               tooltip: { signal: "datum" }
             },
             update: {
@@ -140,5 +155,5 @@ export default function(heatmapData) {
       ]
     },
     { defaultStyle: true }
-  );
+  ).catch(console.error);
 }

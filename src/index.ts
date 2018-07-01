@@ -2,17 +2,18 @@ import ndarray from "ndarray";
 import regl_ from "regl";
 import {
   DEBUG_CANVAS,
-  HEIGHT,
   MAX_REPEATS_X,
   MAX_REPEATS_Y,
   NUM_POINTS,
   NUM_SERIES,
-  WIDTH
+  MAXBINS_X,
+  MAXBINS_Y
 } from "./constants";
 import { generateData } from "./data-gen";
 import { float as f, range } from "./utils";
 import vegaHeatmap from "./vega-heatmap";
 import vegaLinechart from "./vega-linechart";
+import { bin } from "vega-statistics";
 
 document.getElementById("count").innerText = `${NUM_SERIES}`;
 
@@ -24,11 +25,24 @@ vegaLinechart(data);
 
 let canvas = document.createElement("canvas");
 
+document.getElementById("regl").innerText = "";
 if (DEBUG_CANVAS) {
   document.getElementById("regl").appendChild(canvas);
-} else {
-  document.getElementById("regl").innerText = "";
 }
+
+const maxY = (data.data as Float32Array).reduce(
+  (agg, val) => Math.max(agg, val),
+  0
+);
+
+// compute ncie bin boundaries
+const binConfigX = bin({ maxBins: MAXBINS_X, extent: [0, NUM_POINTS - 1] });
+const binConfigY = bin({ maxBins: MAXBINS_Y, extent: [0, maxY] });
+
+const heatmapWidth = (binConfigX.stop - binConfigX.start) / binConfigX.step;
+const heatmapHeight = (binConfigY.stop - binConfigY.start) / binConfigY.step;
+
+console.log(`Heatmap size: ${heatmapWidth}x${heatmapHeight}`);
 
 const regl = regl_({
   canvas: canvas,
@@ -38,11 +52,12 @@ const regl = regl_({
 // See https://github.com/regl-project/regl/issues/498
 const maxRenderbufferSize = Math.min(regl.limits.maxRenderbufferSize, 4096);
 
-const maxRepeatsX = Math.floor(maxRenderbufferSize / WIDTH);
-const maxRepeatsY = Math.floor(maxRenderbufferSize / HEIGHT);
+const maxRepeatsX = Math.floor(maxRenderbufferSize / heatmapWidth);
+const maxRepeatsY = Math.floor(maxRenderbufferSize / heatmapHeight);
+
 const repeatsX = Math.min(
   maxRepeatsX,
-  Math.floor(NUM_SERIES / 4),
+  Math.floor(NUM_SERIES / 4 + 1e-6),
   MAX_REPEATS_X
 );
 const repeatsY = Math.min(
@@ -55,8 +70,8 @@ console.log(
   `Can repeat ${maxRepeatsX}x${maxRepeatsY} times. Repeating ${repeatsX}x${repeatsY} times.`
 );
 
-const reshapedWidth = WIDTH * repeatsX;
-const reshapedHeight = HEIGHT * repeatsY;
+const reshapedWidth = heatmapWidth * repeatsX;
+const reshapedHeight = heatmapHeight * repeatsY;
 
 console.log(`Canvas size ${reshapedWidth}x${reshapedHeight}.`);
 
@@ -82,7 +97,7 @@ const drawLine = regl({
     // move up by 0.3 pixels so that the line is guaranteed to be drawn
     float yOffset = row / repeatsY + 0.3 / ${f(reshapedHeight)};
     // squeeze by 0.6 pixels
-    float squeeze = 1.0 - 0.6 / ${f(HEIGHT)};
+    float squeeze = 1.0 - 0.6 / ${f(heatmapHeight)};
     float yValue = value / (maxY * repeatsY) * squeeze;
     float y = yOffset + yValue;
 
@@ -166,7 +181,7 @@ const sum = regl({
 
     // normalize by the column
     vec4 sum = vec4(0.0);
-    for (float j = 0.0; j < ${f(HEIGHT)}; j++) {
+    for (float j = 0.0; j < ${f(heatmapHeight)}; j++) {
       float texelRow = texelRowStart + (j + 0.5) / ${f(reshapedHeight)};
       vec4 value = texture2D(buffer, vec2(uv.x, texelRow));
       sum += value;
@@ -338,15 +353,15 @@ const resultBuffer = regl.framebuffer({
 });
 
 const preMergedBuffer = regl.framebuffer({
-  width: WIDTH,
+  width: heatmapWidth,
   height: reshapedHeight,
   colorFormat: "rgba",
   colorType: "float"
 });
 
 const heatBuffer = regl.framebuffer({
-  width: WIDTH,
-  height: HEIGHT,
+  width: heatmapWidth,
+  height: heatmapHeight,
   colorFormat: "rgba",
   colorType: "float"
 });
@@ -393,8 +408,8 @@ for (let b = 0; b < NUM_SERIES; b += batchSize) {
       lines[series - finishedSeries] = {
         values: data.pick(series, null),
         times: times,
-        maxY: 0.6,
-        maxX: NUM_POINTS,
+        maxY: maxY,
+        maxX: NUM_POINTS - 1,
         column: Math.floor(i / 4),
         row: row,
         colorMask: colorMask(i),
@@ -447,7 +462,7 @@ console.timeEnd("Compute heatmap");
 
 if (DEBUG_CANVAS) {
   drawTexture({
-    buffer: resultBuffer,
+    buffer: linesBuffer,
     colorMask: [true, true, true, true]
   });
 }
@@ -470,14 +485,18 @@ regl({ framebuffer: heatBuffer })(() => {
     out[i / 4] = arr[i];
   }
 
-  const heatmap = ndarray(out, [HEIGHT, WIDTH]);
+  const heatmap = ndarray(out, [heatmapHeight, heatmapWidth]);
 
   const heatmapData = [];
-  for (let x = 0; x < WIDTH; x++) {
-    for (let y = 0; y < HEIGHT; y++) {
-      heatmapData.push({ x, y, value: heatmap.get(y, x) });
+  for (let x = 0; x < heatmapWidth; x++) {
+    for (let y = 0; y < heatmapHeight; y++) {
+      heatmapData.push({
+        x: binConfigX.start + x * binConfigX.step,
+        y: binConfigY.start + y * binConfigY.step,
+        value: heatmap.get(y, x)
+      });
     }
   }
 
-  vegaHeatmap(heatmapData);
+  vegaHeatmap(heatmapData, binConfigX, binConfigY);
 });

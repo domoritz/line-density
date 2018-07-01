@@ -8,8 +8,10 @@
   "private": true,
   "devDependencies": {
     "@types/ndarray": "^1.0.6",
-    "parcel-bundler": "^1.9.3",
-    "typescript": "^2.9.2"
+    "parcel-bundler": "^1.9.4",
+    "typescript": "^2.9.2",
+    "gh-pages": "^1.2.0",
+    "vega-embed": "^3.16.0"
   },
   "scripts": {
     "start": "parcel index.html",
@@ -19,9 +21,7 @@
     "deploy": "gh-pages -d dist"
   },
   "dependencies": {
-    "gh-pages": "^1.2.0",
     "ndarray": "^1.0.18",
-    "regl": "^1.3.7",
-    "vega-embed": "^3.16.0"
+    "regl": "^1.3.7"
   }
 }
