@@ -8,6 +8,6 @@ body {
 }
 
 #regl canvas {
-  width: 1280px;
-  height: 640px;
+  width: 600px;
+  height: 300px;
 }

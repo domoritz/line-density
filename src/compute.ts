@@ -1,6 +1,6 @@
 import ndarray from "ndarray";
 import regl_ from "regl";
-import { DEBUG_CANVAS, MAX_REPEATS_X, MAX_REPEATS_Y } from "./constants";
+import { MAX_REPEATS_X, MAX_REPEATS_Y } from "./constants";
 import { float as f, range } from "./utils";
 
 export interface BinConfig {
@@ -47,6 +47,8 @@ export async function compute(
   canvas?: HTMLCanvasElement
 ) {
   const [numSeries, numDataPoints] = data.shape;
+
+  const debugCanvas = !!canvas;
 
   const heatmapWidth = (binX.stop - binX.start) / binX.step;
   const heatmapHeight = (binY.stop - binY.start) / binY.step;
@@ -469,10 +471,10 @@ export async function compute(
 
   console.timeEnd("Compute heatmap");
 
-  if (DEBUG_CANVAS) {
+  if (debugCanvas) {
     drawTexture({
-      buffer: linesBuffer,
-      colorMask: [true, true, true, true]
+      buffer: resultBuffer,
+      colorMask: [true, true, true, false]
     });
   }
 

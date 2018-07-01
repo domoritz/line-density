@@ -143,10 +143,16 @@ export default function(heatmapData, binConfigX, binConfigY) {
                 signal: `datum.y + binY.step`,
                 offset: -0.5
               },
-              tooltip: { signal: "datum" }
+              tooltip: {
+                signal:
+                  "{x: datum.x + ' - ' + (datum.x + binX.step), y: format(datum.y, '.2f') + ' - ' + format(datum.y + binY.step, '.2f'), density: format(datum.value, '.1f') }"
+              }
             },
             update: {
               fill: { scale: "color", field: "value" }
+            },
+            hover: {
+              opacity: { value: 0.9 }
             }
           }
         }

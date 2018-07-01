@@ -6,10 +6,16 @@ export function range(n: number) {
   return out;
 }
 
+/**
+ * Convert integer to float for shaders.
+ */
 export function float(i: number) {
   return i.toFixed(1);
 }
 
+/**
+ * Seeded pseudo random number genrator.
+ */
 export function random(seed) {
   return function() {
     const x = Math.sin(seed++) * 10000;

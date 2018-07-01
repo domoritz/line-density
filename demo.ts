@@ -1,15 +1,9 @@
 import { bin } from "vega-statistics";
-import { compute } from "./compute";
-import {
-  DEBUG_CANVAS,
-  MAXBINS_X,
-  MAXBINS_Y,
-  NUM_POINTS,
-  NUM_SERIES
-} from "./constants";
-import { generateData } from "./data-gen";
-import vegaLinechart from "./vega-linechart";
-import vegaHeatmap from "./vega-heatmap";
+import { compute } from "./src/compute";
+import { MAXBINS_X, MAXBINS_Y, NUM_POINTS, NUM_SERIES } from "./src/constants";
+import { generateData } from "./src/data-gen";
+import vegaLinechart from "./src/vega-linechart";
+import vegaHeatmap from "./src/vega-heatmap";
 
 document.getElementById("count").innerText = `${NUM_SERIES}`;
 
@@ -20,10 +14,8 @@ vegaLinechart(data);
 let canvas;
 
 document.getElementById("regl").innerText = "";
-if (DEBUG_CANVAS) {
-  canvas = document.createElement("canvas");
-  document.getElementById("regl").appendChild(canvas);
-}
+canvas = document.createElement("canvas");
+document.getElementById("regl").appendChild(canvas);
 
 const maxY = (data.data as Float32Array).reduce(
   (agg, val) => Math.max(agg, val),
