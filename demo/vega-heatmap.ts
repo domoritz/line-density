@@ -145,11 +145,12 @@ export function heatmap(heatmapData, binConfigX, binConfigY) {
               },
               tooltip: {
                 signal:
-                  "{x: datum.x + ' - ' + (datum.x + binX.step), y: format(datum.y, '.2f') + ' - ' + format(datum.y + binY.step, '.2f'), density: format(datum.value, '.1f') }"
+                  "{Time: datum.x + ' - ' + (datum.x + binX.step), Value: format(datum.y, '.2f') + ' - ' + format(datum.y + binY.step, '.2f'), Density: format(datum.value, '.1f') }"
               }
             },
             update: {
-              fill: { scale: "color", field: "value" }
+              fill: { scale: "color", field: "value" },
+              opacity: { value: 1 }
             },
             hover: {
               opacity: { value: 0.9 }

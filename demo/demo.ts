@@ -1,7 +1,14 @@
 import { bin } from "vega-statistics";
-import compute, { heatmap, lineChart } from "./src";
-import { MAXBINS_X, MAXBINS_Y, NUM_POINTS, NUM_SERIES } from "./src/constants";
-import { generateData } from "./src/data-gen";
+import compute from "../src";
+import { generateData } from "./data-gen";
+import { lineChart } from "./vega-linechart";
+import { heatmap } from "./vega-heatmap";
+
+const NUM_SERIES = 1000;
+const NUM_POINTS = 51;
+
+const MAXBINS_X = 30;
+const MAXBINS_Y = 10;
 
 document.getElementById("count").innerText = `${NUM_SERIES}`;
 

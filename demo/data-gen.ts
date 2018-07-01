@@ -1,6 +1,15 @@
 import ndarray from "ndarray";
-import { random } from "./utils";
 import { USE_REAL_RANDOM } from "./constants";
+
+/**
+ * Seeded pseudo random number genrator.
+ */
+export function random(seed) {
+  return function() {
+    const x = Math.sin(seed++) * 10000;
+    return x - Math.floor(x);
+  };
+}
 
 /**
  * Generate test time series with a random walk.
