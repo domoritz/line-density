@@ -3,6 +3,10 @@ import regl_ from "regl";
 import { MAX_REPEATS_X, MAX_REPEATS_Y } from "./constants";
 import { float as f, range } from "./utils";
 
+export { generateData } from "./data-gen";
+export { heatmap } from "./vega-heatmap";
+export { lineChart } from "./vega-linechart";
+
 export interface BinConfig {
   /**
    * The start of the range.
@@ -40,7 +44,7 @@ export interface Result {
  * @param binY Configuration for the binning along the value dimension.
  * @param canvas The canvas to use for debug output.
  */
-export async function compute(
+export default async function compute(
   data: ndarray,
   binX: BinConfig,
   binY: BinConfig,

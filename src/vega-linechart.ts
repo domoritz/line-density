@@ -2,7 +2,7 @@ import { CHART_WIDTH } from "./constants";
 import embed from "vega-embed";
 import ndarray from "ndarray";
 
-export default function(data: ndarray) {
+export function lineChart(data: ndarray) {
   const values = [];
 
   const n = 10;

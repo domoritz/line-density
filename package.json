@@ -2,7 +2,7 @@
   "name": "line-density",
   "version": "0.0.1",
   "description": "Fast density heatmaps for massive time series.",
-  "main": "index.js",
+  "main": "build/index.js",
   "author": "Dominik Moritz",
   "license": "MIT",
   "private": true,
@@ -15,9 +15,9 @@
   },
   "scripts": {
     "start": "parcel index.html",
-    "prebuild": "rm -rf dist",
-    "build": "parcel build --public-url '.' index.html",
-    "predeploy": "npm run build",
+    "prebuild": "rm -rf build",
+    "build": "tsc",
+    "predeploy": "rm -rf dist && parcel build --public-url '.' index.html",
     "deploy": "gh-pages -d dist"
   },
   "dependencies": {

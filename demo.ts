@@ -1,15 +1,13 @@
 import { bin } from "vega-statistics";
-import { compute } from "./src/compute";
+import compute, { heatmap, lineChart } from "./src";
 import { MAXBINS_X, MAXBINS_Y, NUM_POINTS, NUM_SERIES } from "./src/constants";
 import { generateData } from "./src/data-gen";
-import vegaLinechart from "./src/vega-linechart";
-import vegaHeatmap from "./src/vega-heatmap";
 
 document.getElementById("count").innerText = `${NUM_SERIES}`;
 
 const data = generateData(NUM_SERIES, NUM_POINTS);
 
-vegaLinechart(data);
+lineChart(data);
 
 let canvas;
 
@@ -27,5 +25,5 @@ const binConfigX = bin({ maxBins: MAXBINS_X, extent: [0, NUM_POINTS - 1] });
 const binConfigY = bin({ maxBins: MAXBINS_Y, extent: [0, maxY] });
 
 compute(data, binConfigX, binConfigY, canvas).then(heatmapData => {
-  vegaHeatmap(heatmapData, binConfigX, binConfigY);
+  heatmap(heatmapData, binConfigX, binConfigY);
 });
