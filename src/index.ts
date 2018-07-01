@@ -1,18 +1,18 @@
 import ndarray from "ndarray";
 import regl_ from "regl";
 import {
+  DEBUG_CANVAS,
   HEIGHT,
-  NUM_POINTS,
-  NUM_SERIES,
-  WIDTH,
   MAX_REPEATS_X,
   MAX_REPEATS_Y,
-  DEBUG_CANVAS
+  NUM_POINTS,
+  NUM_SERIES,
+  WIDTH
 } from "./constants";
 import { generateData } from "./data-gen";
+import { float as f, range } from "./utils";
 import vegaHeatmap from "./vega-heatmap";
 import vegaLinechart from "./vega-linechart";
-import { float as f, range } from "./utils";
 
 document.getElementById("count").innerText = `${NUM_SERIES}`;
 
@@ -35,7 +35,8 @@ const regl = regl_({
   extensions: ["OES_texture_float"]
 });
 
-const maxRenderbufferSize = regl.limits.maxRenderbufferSize;
+// See https://github.com/regl-project/regl/issues/498
+const maxRenderbufferSize = Math.min(regl.limits.maxRenderbufferSize, 4096);
 
 const maxRepeatsX = Math.floor(maxRenderbufferSize / WIDTH);
 const maxRepeatsY = Math.floor(maxRenderbufferSize / HEIGHT);
@@ -369,8 +370,9 @@ let series = 0;
 // how many series have already been drawn
 let finishedSeries = 0;
 
-console.time("Prepare Batch");
 for (let b = 0; b < NUM_SERIES; b += batchSize) {
+  console.time("Prepare Batch");
+
   // array to hold the lines that should be rendered
   let lines = new Array(Math.min(batchSize, NUM_SERIES - series));
 
