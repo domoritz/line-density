@@ -2,8 +2,6 @@ import embed from "vega-embed";
 import { CHART_WIDTH, CHART_HEIGHT } from "./constants";
 
 export default function(heatmapData, binConfigX, binConfigY) {
-  console.log(heatmapData, binConfigX, binConfigY);
-
   embed(
     document.getElementById("heat"),
     {
