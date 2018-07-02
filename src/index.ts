@@ -276,8 +276,7 @@ export default async function(
             color += texture2D(buffer, vec2(x, uv.y));
           }
       
-          float value = color.r + color.g + color.b + color.a;
-          gl_FragColor = vec4(vec3(value), 1.0);
+          gl_FragColor = color;
         }`,
 
     uniforms: {
