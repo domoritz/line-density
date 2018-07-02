@@ -4,6 +4,14 @@ import { generateData } from "./data-gen";
 import { lineChart } from "./vega-linechart";
 import { heatmap } from "./vega-heatmap";
 
+const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+
+if (isSafari) {
+  alert(
+    "Safari does not support float textures. Please use Firefox or Chrome."
+  );
+}
+
 const config: Partial<{
   series: number;
   points: number;
