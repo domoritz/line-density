@@ -50,8 +50,8 @@ export default async function(
 
   const debugCanvas = !!canvas;
 
-  const heatmapWidth = (binX.stop - binX.start) / binX.step;
-  const heatmapHeight = (binY.stop - binY.start) / binY.step;
+  const heatmapWidth = Math.floor((binX.stop - binX.start) / binX.step);
+  const heatmapHeight = Math.floor((binY.stop - binY.start) / binY.step);
 
   console.info(`Heatmap size: ${heatmapWidth}x${heatmapHeight}`);
 
@@ -68,7 +68,7 @@ export default async function(
 
   const repeatsX = Math.min(
     maxRepeatsX,
-    Math.floor(numSeries / 4 + 1e-6),
+    Math.ceil(numSeries / 4 - 1e-6),
     MAX_REPEATS_X
   );
   const repeatsY = Math.min(
@@ -342,6 +342,7 @@ export default async function(
     }
   });
 
+  console.time("Allocate buffers");
   const linesBuffer = regl.framebuffer({
     width: reshapedWidth,
     height: reshapedHeight,
@@ -376,6 +377,7 @@ export default async function(
     colorFormat: "rgba",
     colorType: "float"
   });
+  console.timeEnd("Allocate buffers");
 
   function colorMask(i) {
     const mask = [false, false, false, false];

@@ -4,33 +4,65 @@ import { generateData } from "./data-gen";
 import { lineChart } from "./vega-linechart";
 import { heatmap } from "./vega-heatmap";
 
-const NUM_SERIES = 1000;
-const NUM_POINTS = 51;
+const config: Partial<{
+  series: number;
+  points: number;
+  binsx: number;
+  binsy: number;
+}> = {};
 
-const MAXBINS_X = 30;
-const MAXBINS_Y = 10;
+document
+  .querySelectorAll(".input-form input")
+  .forEach((el: HTMLInputElement) => {
+    const update = () => {
+      let value = +el.value;
 
-document.getElementById("count").innerText = `${NUM_SERIES}`;
+      config[el.name] = value;
+      const print = document.getElementById(`${el.name}-show`);
+      if (print) {
+        print.innerText = String(value);
+      }
+    };
+    el.oninput = update;
+    update();
+  });
 
-const data = generateData(NUM_SERIES, NUM_POINTS);
+(document.getElementById("run") as HTMLButtonElement).onclick = event => {
+  run();
+  event.preventDefault();
+};
 
-lineChart(data);
+function run() {
+  const { series, points, binsx, binsy } = config;
 
-let canvas;
+  let start = Date.now();
+  const data = generateData(series, points);
+  document.getElementById("datatime").innerText = `${(Date.now() - start) /
+    1000} seconds`;
 
-document.getElementById("regl").innerText = "";
-canvas = document.createElement("canvas");
-document.getElementById("regl").appendChild(canvas);
+  lineChart(data);
 
-const maxY = (data.data as Float32Array).reduce(
-  (agg, val) => Math.max(agg, val),
-  0
-);
+  let canvas;
 
-// compute nice bin boundaries
-const binConfigX = bin({ maxBins: MAXBINS_X, extent: [0, NUM_POINTS - 1] });
-const binConfigY = bin({ maxBins: MAXBINS_Y, extent: [0, maxY] });
+  document.getElementById("regl").innerText = "";
+  canvas = document.createElement("canvas");
+  document.getElementById("regl").appendChild(canvas);
 
-compute(data, binConfigX, binConfigY, canvas).then(heatmapData => {
-  heatmap(heatmapData, binConfigX, binConfigY);
-});
+  const maxY = (data.data as Float32Array).reduce(
+    (agg, val) => Math.max(agg, val),
+    0
+  );
+
+  // compute nice bin boundaries
+  const binConfigX = bin({ maxbins: binsx, extent: [0, points - 1] });
+  const binConfigY = bin({ maxbins: binsy, extent: [0, maxY] });
+
+  start = Date.now();
+  compute(data, binConfigX, binConfigY, canvas).then(heatmapData => {
+    document.getElementById("computetime").innerText = `${(Date.now() - start) /
+      1000} seconds`;
+    heatmap(heatmapData, binConfigX, binConfigY);
+  });
+}
+
+run();

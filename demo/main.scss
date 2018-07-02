@@ -1,0 +1,39 @@
+body {
+  font-family: sans-serif;
+}
+
+.wrapper {
+  display: flex;
+  flex-direction: column;
+}
+
+#regl canvas {
+  width: 600px;
+  height: 300px;
+}
+
+.input-form {
+  label {
+    margin-top: 1em;
+    display: block;
+    font-size: 0.8em;
+    font-weight: bold;
+
+    & input {
+      &[type="range"] {
+        width: 400px;
+      }
+    }
+  }
+
+  button {
+    margin-top: 2em;
+    font-size: 17px;
+    border-radius: 3px;
+    padding: 4px 20px;
+
+    &:focus {
+      outline: none;
+    }
+  }
+}
