@@ -1,1 +1,0 @@
-body{font-family:sans-serif}.wrapper{display:flex;flex-direction:column}#regl canvas{width:600px;height:300px}.input-form label{margin-top:1em;display:block;font-size:.8em;font-weight:700}.input-form label input[type=range]{width:400px}.input-form button{margin-top:2em;font-size:17px;border-radius:3px;padding:4px 20px}.input-form button:focus{outline:none}
