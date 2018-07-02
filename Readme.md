@@ -1,10 +1,12 @@
 # Fast density heatmaps for time series with WebGL
 
-Try the demo at https://domoritz.github.io/line-heatmap.
+**Try the demo at https://domoritz.github.io/line-heatmap.**
 
 This implementation renders as many lines a possible into a single framebuffer and computes the sums and normalization entirely on the GPU. The multiple heatmaps are eventually collected into a single output buffer. We can then render the buffer with the tool of our choice (e.g. Vega).
 
-<img src="https://raw.githubusercontent.com/domoritz/line-density/master/screenshot.png" width="600"></img>
+<a href="https://domoritz.github.io/line-heatmap">
+    <img src="https://raw.githubusercontent.com/domoritz/line-density/master/screenshot.png" width="600"></img>
+</a>
 
 ## Installation
 
