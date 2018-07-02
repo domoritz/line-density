@@ -2,7 +2,9 @@
 
 Try the demo at https://domoritz.github.io/line-heatmap.
 
-This implementation renders as many lines a possible into a single framebuffer and computes the sums and normalization entirely on the GPU. The multiple heatmaps are eventualy collected into a single output buffer. We can then render the buffer with the tool of our choice (e.g. Vega).
+This implementation renders as many lines a possible into a single framebuffer and computes the sums and normalization entirely on the GPU. The multiple heatmaps are eventually collected into a single output buffer. We can then render the buffer with the tool of our choice (e.g. Vega).
+
+<img src="screenshot.png" width="600"></img>
 
 ## Related repos
 

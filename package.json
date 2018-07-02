@@ -4,8 +4,7 @@
   "description": "Fast density heatmaps for massive time series.",
   "main": "build/index.js",
   "author": "Dominik Moritz",
-  "license": "MIT",
-  "private": true,
+  "license": "BSD-3-Clause",
   "devDependencies": {
     "@types/ndarray": "^1.0.6",
     "gh-pages": "^1.2.0",
