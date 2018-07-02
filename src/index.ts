@@ -480,16 +480,6 @@ export default async function(
     });
   }
 
-  // print buffer values
-  // regl({ framebuffer: sumsBuffer })(() => {
-  //   const arr = regl.read();
-  //   const out = new Float32Array(arr.length / 4);
-  //   for (let i = 0; i < arr.length; i += 4) {
-  //     out[i / 4] = arr[i];
-  //   }
-  //   console.log(out);
-  // });
-
   return new Promise<Result[]>(resolve => {
     regl({ framebuffer: heatBuffer })(() => {
       const arr = regl.read();
