@@ -149,7 +149,10 @@ export function heatmap(heatmapData, binConfigX, binConfigY) {
               }
             },
             update: {
-              fill: { scale: "color", field: "value" },
+              fill: {
+                signal:
+                  "datum.value === 0 ? 'white' : scale('color', datum.value)"
+              },
               opacity: { value: 1 }
             },
             hover: {
