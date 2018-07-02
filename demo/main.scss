@@ -1,15 +1,23 @@
 body {
   font-family: sans-serif;
+  max-width: 1000px;
+  padding: 0 20px;
+  margin: 0 auto;
+  font-size: 18px;
 }
 
 .wrapper {
   display: flex;
   flex-direction: column;
+
+  & > div {
+    margin-bottom: 2em;
+  }
 }
 
 #regl canvas {
-  width: 600px;
-  height: 300px;
+  width: 1000px;
+  height: 600px;
 }
 
 .input-form {
@@ -30,7 +38,8 @@ body {
     margin-top: 2em;
     font-size: 17px;
     border-radius: 3px;
-    padding: 4px 20px;
+    padding: 6px 24px;
+    font-weight: bold;
 
     &:focus {
       outline: none;

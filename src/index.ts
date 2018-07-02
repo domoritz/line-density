@@ -38,7 +38,7 @@ export interface Result {
  * @param data The time series data as an ndarray.
  * @param binX Configuration for the binning along the time dimension.
  * @param binY Configuration for the binning along the value dimension.
- * @param canvas The canvas to use for debug output.
+ * @param canvas The canvas for the webgl context and for debug output.
  */
 export default async function(
   data: ndarray,
@@ -476,7 +476,7 @@ export default async function(
   if (debugCanvas) {
     drawTexture({
       buffer: resultBuffer,
-      colorMask: [true, true, true, false]
+      colorMask: [true, true, true, true]
     });
   }
 

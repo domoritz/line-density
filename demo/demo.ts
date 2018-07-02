@@ -43,10 +43,11 @@ function run() {
   lineChart(data);
 
   let canvas;
-
   document.getElementById("regl").innerText = "";
-  canvas = document.createElement("canvas");
-  document.getElementById("regl").appendChild(canvas);
+  if ((document.getElementById("debug") as HTMLInputElement).checked) {
+    canvas = document.createElement("canvas");
+    document.getElementById("regl").appendChild(canvas);
+  }
 
   const maxY = (data.data as Float32Array).reduce(
     (agg, val) => Math.max(agg, val),
