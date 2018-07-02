@@ -2,7 +2,11 @@
   "name": "line-density",
   "version": "0.0.1",
   "description": "Fast density heatmaps for massive time series.",
-  "main": "build/index.js",
+  "main": "build/line-density.js",
+  "module": "build/index.js",
+  "unpkg": "build/line-density.min.js",
+  "jsdelivr": "build/line-density.min.js",
+  "typings": "build/index.d.ts",
   "author": "Dominik Moritz",
   "license": "BSD-3-Clause",
   "devDependencies": {
@@ -19,7 +23,7 @@
   "scripts": {
     "start": "parcel demo/index.html",
     "prebuild": "rm -rf build",
-    "build:tsc": "tsc src/index.ts --outDir build --allowSyntheticDefaultImports --esModuleInterop -t es6",
+    "build:tsc": "tsc src/index.ts --outDir build --allowSyntheticDefaultImports --esModuleInterop -t es6 -d",
     "build:rollup": "rollup -c",
     "build": "npm run build:tsc && npm run build:rollup",
     "postbuild": "uglifyjs build/line-density.js -c -m -o build/line-density.min.js",
