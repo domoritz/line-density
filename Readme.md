@@ -28,7 +28,7 @@ const lineDensity = await density(
 );
 ```
 
-The density function takes an optional canvas as the fourth parameter.
+The density function takes an optional canvas as the fourth parameter (for use with https://github.com/Automattic/node-canvas).
 
 ## Related Repositories
 
