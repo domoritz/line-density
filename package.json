@@ -1,6 +1,6 @@
 {
   "name": "line-density",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "description": "Fast density heatmaps for massive time series.",
   "main": "build/line-density.js",
   "module": "build/index.js",
