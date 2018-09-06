@@ -8,6 +8,8 @@ This implementation renders as many lines a possible into a single framebuffer a
     <img src="https://raw.githubusercontent.com/domoritz/line-density/master/screenshot.png" width="600"></img>
 </a>
 
+You can use `line-density` in Observable. Check out https://beta.observablehq.com/@domoritz/line-density. 
+
 ## Installation
 
 This module is [available on npm](https://www.npmjs.com/package/line-density) and can be installed with `yarn add line-density`.
