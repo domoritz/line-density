@@ -13,12 +13,6 @@ export function lineChart(data: ndarray) {
     }
   }
 
-  const encoding: any = {
-    color: { field: "group", type: "nominal", title: "Series" },
-    x: { field: "time", type: "quantitative", title: "Time" },
-    y: { field: "value", type: "quantitative", title: "Value" }
-  };
-
   embed(
     document.getElementById("lines"),
     {
@@ -32,8 +26,9 @@ export function lineChart(data: ndarray) {
         orient: "vertical"
       },
       encoding: {
-        ...encoding,
-        tooltip: Object.keys(encoding).map(k => encoding[k])
+        color: { field: "group", type: "nominal", title: "Series" },
+        x: { field: "time", type: "quantitative", title: "Time" },
+        y: { field: "value", type: "quantitative", title: "Value" }
       }
     },
     { defaultStyle: true }
