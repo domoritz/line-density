@@ -10,28 +10,31 @@
   "author": "Dominik Moritz",
   "license": "BSD-3-Clause",
   "devDependencies": {
-    "gh-pages": "^1.2.0",
-    "node-sass": "^4.9.3",
-    "parcel-bundler": "^1.9.7",
-    "rollup": "^0.65.2",
-    "rollup-plugin-commonjs": "^9.1.6",
-    "rollup-plugin-node-resolve": "^3.4.0",
-    "typescript": "^3.0.3",
-    "uglify-js": "^3.4.9",
-    "vega-embed": "^3.19.2"
+    "gh-pages": "^2.1.1",
+    "node-sass": "^4.13.0",
+    "parcel-bundler": "^1.12.4",
+    "rollup": "^1.26.0",
+    "rollup-plugin-commonjs": "^10.1.0",
+    "rollup-plugin-node-resolve": "^5.2.0",
+    "terser": "4.3.9",
+    "typescript": "^3.6.4",
+    "vega-embed": "^6.0.0",
+    "vega": "^5.7.3",
+    "vega-lite": "4.0.0-beta.10"
   },
   "scripts": {
     "start": "parcel demo/index.html",
     "prebuild": "rm -rf build",
     "build:rollup": "rollup -c",
     "build": "tsc && npm run build:rollup",
-    "postbuild": "uglifyjs build/line-density.js -c -m -o build/line-density.min.js",
+    "postbuild": "terser build/line-density.js -c -m -o build/line-density.min.js",
     "predeploy": "rm -rf dist && parcel build --public-url '.' demo/index.html",
     "deploy": "gh-pages -d dist"
   },
   "dependencies": {
-    "@types/ndarray": "^1.0.6",
+    "@types/ndarray": "^1.0.7",
     "ndarray": "^1.0.18",
-    "regl": "^1.3.7"
+    "regl": "^1.3.13",
+    "vega-statistics": "^1.6.1"
   }
 }

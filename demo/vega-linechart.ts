@@ -13,24 +13,20 @@ export function lineChart(data: ndarray) {
     }
   }
 
-  embed(
-    document.getElementById("lines"),
-    {
-      title: `Sample of the first ${n} time series`,
-      width: CHART_WIDTH,
-      data: {
-        values: values
-      },
-      mark: {
-        type: "line",
-        orient: "vertical"
-      },
-      encoding: {
-        color: { field: "group", type: "nominal", title: "Series" },
-        x: { field: "time", type: "quantitative", title: "Time" },
-        y: { field: "value", type: "quantitative", title: "Value" }
-      }
+  embed(document.getElementById("lines"), {
+    title: `Sample of the first ${n} time series`,
+    width: CHART_WIDTH,
+    data: {
+      values: values
     },
-    { defaultStyle: true }
-  );
+    mark: {
+      type: "line",
+      orient: "vertical"
+    },
+    encoding: {
+      color: { field: "group", type: "nominal", title: "Series" },
+      x: { field: "time", type: "quantitative", title: "Time" },
+      y: { field: "value", type: "quantitative", title: "Value" }
+    }
+  });
 }
