@@ -46,6 +46,11 @@ export default async function(
   binY: BinConfig,
   canvas?: HTMLCanvasElement
 ) {
+  // Check the start of bin so that it will not draw out of region
+  if (binX.start < 0 || binY.start < 0) {
+    throw new Error('The start of bin sholud be greater than or equal zero.');
+  }
+  
   const [numSeries, numDataPoints] = data.shape;
 
   const debugCanvas = !!canvas;
