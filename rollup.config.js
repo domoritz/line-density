@@ -1,5 +1,5 @@
-import resolve from "rollup-plugin-node-resolve";
-import commonjs from "rollup-plugin-commonjs";
+import commonjs from "@rollup/plugin-commonjs";
+import nodeResolve from "@rollup/plugin-node-resolve";
 
 export default {
   input: "build/index.js",
@@ -8,7 +8,7 @@ export default {
     format: "umd",
     sourcemap: true,
     name: "density",
-    exports: "named"
+    exports: "named",
   },
-  plugins: [resolve(), commonjs()]
+  plugins: [nodeResolve(), commonjs()],
 };
