@@ -12,6 +12,8 @@ This implementation renders as many lines a possible into a single framebuffer a
 
 You can use `line-density` in Observable. Check out https://beta.observablehq.com/@domoritz/line-density. 
 
+Twitter published a library that uses the line density algorithm in pure JavaScript at https://observablehq.com/@twitter/density-plot-introduction. 
+
 ## Installation
 
 This module is [available on npm](https://www.npmjs.com/package/line-density) and can be installed with `yarn add line-density`.
